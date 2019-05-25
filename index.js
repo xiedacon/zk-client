@@ -247,9 +247,6 @@ Client.prototype.onConnectionManagerState = function (connectionManagerState) {
     case ConnectionManager.STATES.CONNECTED_READ_ONLY:
         state = State.CONNECTED_READ_ONLY;
         break;
-    case ConnectionManager.STATES.SESSION_EXPIRED:
-        state = State.EXPIRED;
-        break;
     case ConnectionManager.STATES.AUTHENTICATION_FAILED:
         state = State.AUTH_FAILED;
         break;
