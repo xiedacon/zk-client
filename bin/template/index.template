@@ -1,0 +1,27 @@
+/**
+* This file created by ./bin/gen_types
+* Do not modify this file!!!!!!!!!
+ */
+'use strict';
+
+exports.basic = {
+  type: require('./basic/type'),
+  object: require('./basic/object'),
+  RequestRecord: require('./basic/RequestRecord'),
+  ResponseRecord: require('./basic/ResponseRecord'),
+};
+
+exports.boolean = require('./boolean');
+exports.buffer = require('./buffer');
+exports.int = require('./int');
+exports.long = require('./long');
+exports.ustring = require('./ustring');
+exports.vector = require('./vector');
+
+${
+  Object.values(jute).map(module => {
+    return `exports.${module.name} = {\n${
+      Object.values(module.clazzes).map(c => `  ${c.name}: require('./${module.name}/${c.name}'),`).join('\n')
+    }\n};`;
+  }).join('\n\n')
+}

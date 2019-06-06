@@ -1,915 +1,797 @@
 /**
- * Copyright (c) 2013 Yahoo! Inc. All rights reserved.
+ * xiedacon created at 2019-06-03 14:49:05
  *
- * Copyrights licensed under the MIT License. See the accompanying LICENSE file
- * for terms.
+ * Copyright (c) 2019 Souche.com, all rights reserved.
  */
+'use strict';
+
+const events = require('events');
+
+const {
+  CreateMode,
+  OpCode,
+  Perms,
+  Xid,
+  WatcherType,
+  EventType,
+  EventState,
+  ExceptionCode,
+  ConnectionEvent,
+  Ids,
+} = require('./lib/constants');
+const utils = require('./lib/utils');
+const Transaction = require('./lib/Transaction');
+const Exception = require('./lib/Exception');
+
+const PacketManager = require('./lib/PacketManager');
+const ConnectionManager = require('./lib/ConnectionManager');
+const WatcherManager = require('./lib/WatcherManager');
+
+const isProd = [ 'dev', 'develop', 'development', 'DEV', 'DEVELOP', 'DEVELOPMENT' ].indexOf(process.env.NODE_ENV) < 0;
 
 /**
- *
- * A pure Javascript ZooKeeper client.
- *
- * @module node-zookeeper-client
- *
+ * @typedef {object} Options
+ * @property {Array<{ scheme: string, auth: string|Buffer }>=} authInfo scheme:auth information
+ * @property {string=} configNode
+ * @property {Buffer=} sessionId
+ * @property {Buffer=} sessionPassword
+ * @property {number=} sessionTimeout
+ * @property {number=} connectTimeout socket connect timeout
+ * @property {number=} reconnectInterval Time to wait after try all server failed
+ * @property {number=} retries Times to retry send packet to server
+ * @property {number=} retryInterval Time to wait before retry send
+ * @property {boolean=} showFriendlyErrorStack Show friendly error stack,
+ * @property {{error: Function, info: Function, warn: Function, debug: Function}=} logger
+ * @property {typeof PacketManager=} PacketManager
+ * @property {typeof WatcherManager=} WatcherManager
  */
+class Client extends events.EventEmitter {
+  /**
+   *
+   * @param {string} connectionString
+   * @param {Options=} options
+   */
+  constructor(connectionString, options = {}) {
+    super();
 
-var assert            = require('assert');
-var events            = require('events');
-var util              = require('util');
-var net               = require('net');
+    this.connectionString = connectionString;
+    /** @type {Options} */
+    this.options = Object.assign({}, this.default, options);
 
-var async             = require('async');
-var u                 = require('underscore');
+    // Disable on production
+    this.options.showFriendlyErrorStack = isProd ? false : this.options.showFriendlyErrorStack;
 
-var jute              = require('./lib/jute');
-var ACL               = require('./lib/ACL.js');
-var Id                = require('./lib/Id.js');
-var Path              = require('./lib/Path.js');
-var Event             = require('./lib/Event.js');
-var State             = require('./lib/State.js');
-var Permission        = require('./lib/Permission.js');
-var CreateMode        = require('./lib/CreateMode.js');
-var Exception         = require('./lib/Exception');
-var Transaction       = require('./lib/Transaction.js');
-var ConnectionManager = require('./lib/ConnectionManager.js');
+    // scheme:auth pairs
+    const credentials = this.credentials = [];
+    for (let { scheme, auth } of this.options.authInfo) {
+      if (typeof auth === 'string') auth = Buffer.from(auth);
+      if (typeof scheme !== 'string') throw new Exception.Normal('authInfo[i].scheme must be a string');
+      if (!Buffer.isBuffer(auth)) throw new Exception.Normal('authInfo[i].auth must be a string or Buffer');
 
-
-// Constants.
-var CLIENT_DEFAULT_OPTIONS = {
-    sessionTimeout : 30000, // Default to 30 seconds.
-    spinDelay : 1000, // Defaults to 1 second.
-    retries : 0 // Defaults to 0, no retry.
-};
-
-var DATA_SIZE_LIMIT = 1048576; // 1 mega bytes.
-
-/**
- * Default state listener to emit user-friendly events.
- */
-function defaultStateListener(state) {
-    switch (state) {
-    case State.DISCONNECTED:
-        this.emit('disconnected');
-        break;
-    case State.SYNC_CONNECTED:
-        this.emit('connected');
-        break;
-    case State.CONNECTED_READ_ONLY:
-        this.emit('connectedReadOnly');
-        break;
-    case State.EXPIRED:
-        this.emit('expired');
-        break;
-    case State.AUTH_FAILED:
-        this.emit('authenticationFailed');
-        break;
-    default:
-        return;
-    }
-}
-
-/**
- * Try to execute the given function 'fn'. If it fails to execute, retry for
- * 'self.options.retires' times. The duration between each retry starts at
- * 1000ms and grows exponentially as:
- *
- * duration = Math.min(1000 * Math.pow(2, attempts), sessionTimeout)
- *
- * When the given function is executed successfully or max retry has been
- * reached, an optional callback function will be invoked with the error (if
- * any) and the result.
- *
- * fn prototype:
- * function(attempts, next);
- * attempts: tells you what is the current execution attempts. It starts with 0.
- * next: You invoke the next function when complete or there is an error.
- *
- * next prototype:
- * function(error, ...);
- * error: The error you encounter in the operation.
- * other arguments: Will be passed to the optional callback
- *
- * callback prototype:
- * function(error, ...)
- *
- * @private
- * @method attempt
- * @param self {Client} an instance of zookeeper client.
- * @param fn {Function} the function to execute.
- * @param callback {Function} optional callback function.
- *
- */
-function attempt(self, fn, callback) {
-    var count = 0,
-        retry = true,
-        retries = self.options.retries,
-        results = {};
-
-    assert(typeof fn === 'function', 'fn must be a function.');
-
-    assert(
-        typeof retries === 'number' && retries >= 0,
-        'retries must be an integer greater or equal to 0.'
-    );
-
-    assert(typeof callback === 'function', 'callback must be a function.');
-
-    async.whilst(
-        function () {
-            return count <= retries && retry;
-        },
-        function (next) {
-            var attempts = count;
-
-            count += 1;
-
-            fn(attempts, function (error) {
-                var args,
-                    sessionTimeout;
-
-                results[attempts] = {};
-                results[attempts].error = error;
-
-                if (arguments.length > 1) {
-                    args = Array.prototype.slice.apply(arguments);
-                    results[attempts].args = args.slice(1);
-                }
-
-                if (error && error.code === Exception.CONNECTION_LOSS) {
-                    retry = true;
-                } else {
-                    retry = false;
-                }
-
-                if (!retry || count > retries) {
-                    // call next so we can get out the loop without delay
-                    next();
-                } else {
-                    sessionTimeout = self.connectionManager.getSessionTimeout();
-
-                    // Exponentially back-off
-                    setTimeout(
-                        next,
-                        Math.min(1000 * Math.pow(2, attempts), sessionTimeout)
-                    );
-                }
-            });
-        },
-        function (error) {
-            var args = [],
-                result = results[count - 1];
-
-            if (callback) {
-                args.push(result.error);
-                Array.prototype.push.apply(args, result.args);
-
-                callback.apply(null, args);
-            }
-        }
-    );
-}
-
-/**
- * The ZooKeeper client constructor.
- *
- * @class Client
- * @constructor
- * @param connectionString {String} ZooKeeper server ensemble string.
- * @param [options] {Object} client options.
- */
-function Client(connectionString, options) {
-    if (!(this instanceof Client)) {
-        return new Client(connectionString, options);
+      credentials.push({ scheme, auth });
     }
 
-    events.EventEmitter.call(this);
+    this.logger = this.options.logger;
+    /** @type {PacketManager} */
+    this.packetManager = this.options.PacketManager instanceof PacketManager
+      ? new this.options.PacketManager(this)
+      : new PacketManager(this);
+    /** @type {ConnectionManager} */
+    this.connectionManager = new ConnectionManager(this);
+    /** @type {WatcherManager} */
+    this.watcherManager = this.options.WatcherManager instanceof WatcherManager
+      ? new this.options.WatcherManager(this)
+      : new WatcherManager(this);
+  }
 
-    options = options || {};
+  get default() {
+    return {
+      authInfo: [],
+      configNode: '/zookeeper/config',
 
-    assert(
-        connectionString && typeof connectionString === 'string',
-        'connectionString must be an non-empty string.'
-    );
+      sessionId: Buffer.alloc(8),
+      sessionPassword: Buffer.alloc(16),
+      sessionTimeout: 30000,
 
-    assert(
-        typeof options === 'object',
-        'options must be a valid object'
-    );
+      connectTimeout: 5000,
+      reconnectInterval: 1000,
 
-    options = u.defaults(u.clone(options), CLIENT_DEFAULT_OPTIONS);
+      retries: 3,
+      retryInterval: 0,
 
-    this.connectionManager = new ConnectionManager(
-        connectionString,
-        options,
-        this.onConnectionManagerState.bind(this)
-    );
+      showFriendlyErrorStack: !isProd,
 
-    this.options = options;
-    this.state = State.DISCONNECTED;
+      logger: {
+        error: console.log,
+        info: console.log,
+        warn: console.log,
+        debug: console.log,
+      },
+      PacketManager,
+      WatcherManager,
+    };
+  }
 
-    this.on('state', defaultStateListener);
-}
-
-util.inherits(Client, events.EventEmitter);
-
-/**
- * Start the client and try to connect to the ensemble.
- *
- * @method connect
- */
-Client.prototype.connect = function () {
-    this.connectionManager.connect();
-};
-
-/**
- * Shutdown the client.
- *
- * @method connect
- */
-Client.prototype.close = function () {
-    this.connectionManager.close();
-};
-
-/**
- * Private method to translate connection manager state into client state.
- */
-Client.prototype.onConnectionManagerState = function (connectionManagerState) {
-    var state;
-
-    // Convert connection state to ZooKeeper state.
-    switch (connectionManagerState) {
-    case ConnectionManager.STATES.DISCONNECTED:
-        state = State.DISCONNECTED;
-        break;
-    case ConnectionManager.STATES.CONNECTED:
-        state = State.SYNC_CONNECTED;
-        break;
-    case ConnectionManager.STATES.CONNECTED_READ_ONLY:
-        state = State.CONNECTED_READ_ONLY;
-        break;
-    case ConnectionManager.STATES.AUTHENTICATION_FAILED:
-        state = State.AUTH_FAILED;
-        break;
-    default:
-        // Not a event in which client is interested, so skip it.
-        return;
+  async ready() {
+    for (const event of Object.values(ConnectionEvent)) {
+      this.connectionManager.on(event, (...args) => this.emit(event, ...args));
     }
 
-    if (this.state !== state) {
-        this.state = state;
-        this.emit('state', this.state);
-    }
-};
-
-/**
- * Returns the state of the client.
- *
- * @method getState
- * @return {State} the state of the client.
- */
-Client.prototype.getState = function () {
-    return this.state;
-};
-
-/**
- * Returns the session id for this client instance. The value returned is not
- * valid until the client connects to a server and may change after a
- * re-connect.
- *
- * @method getSessionId
- * @return {Buffer} the session id, 8 bytes long buffer.
- */
-Client.prototype.getSessionId = function () {
-    return this.connectionManager.getSessionId();
-};
-
-/**
- * Returns the session password for this client instance. The value returned
- * is not valid until the client connects to a server and may change after a
- * re-connect.
- *
- * @method getSessionPassword
- * @return {Buffer} the session password, 16 bytes buffer.
- */
-Client.prototype.getSessionPassword = function () {
-    return this.connectionManager.getSessionPassword();
-};
-
-/**
- * Returns the negotiated session timeout for this client instance. The value
- * returned is not valid until the client connects to a server and may change
- * after a re-connect.
- *
- * @method getSessionTimeout
- * @return {Integer} the session timeout value.
- */
-Client.prototype.getSessionTimeout = function () {
-    return this.connectionManager.getSessionTimeout();
-};
-
-
-/**
- * Add the specified scheme:auth information to this client.
- *
- * @method addAuthInfo
- * @param scheme {String} The authentication scheme.
- * @param auth {Buffer} The authentication data buffer.
- */
-Client.prototype.addAuthInfo = function (scheme, auth) {
-    assert(
-        scheme || typeof scheme === 'string',
-        'scheme must be a non-empty string.'
-    );
-
-    assert(
-        Buffer.isBuffer(auth),
-        'auth must be a valid instance of Buffer'
-    );
-
-    var buffer = new Buffer(auth.length);
-
-    auth.copy(buffer);
-    this.connectionManager.addAuthInfo(scheme, buffer);
-};
-
-/**
- * Create a node with given path, data, acls and mode.
- *
- * @method create
- * @param path {String} The node path.
- * @param [data=undefined] {Buffer} The data buffer.
- * @param [acls=ACL.OPEN_ACL_UNSAFE] {Array} An array of ACL object.
- * @param [mode=CreateMode.PERSISTENT] {CreateMode} The creation mode.
- * @param callback {Function} The callback function.
- */
-Client.prototype.create = function (path, data, acls, mode, callback) {
-    var self = this,
-        optionalArgs = [data, acls, mode, callback],
-        header,
-        payload,
-        request;
-
-    Path.validate(path);
-
-    // Reset arguments so we can reassign correct value to them.
-    data = acls = mode = callback = undefined;
-    optionalArgs.forEach(function (arg, index) {
-        if (Array.isArray(arg)) {
-            acls = arg;
-        } else if (typeof arg === 'number') {
-            mode = arg;
-        } else if (Buffer.isBuffer(arg)) {
-            data = arg;
-        } else if (typeof arg === 'function') {
-            callback = arg;
-        }
-    });
-
-    assert(
-        typeof callback === 'function',
-        'callback must be a function.'
-    );
-
-    acls = Array.isArray(acls) ? acls : ACL.OPEN_ACL_UNSAFE;
-    mode = typeof mode === 'number' ? mode : CreateMode.PERSISTENT;
-
-    assert(
-        data === null || data === undefined || Buffer.isBuffer(data),
-        'data must be a valid buffer, null or undefined.'
-    );
-
-    if (Buffer.isBuffer(data)) {
-        assert(
-            data.length <= DATA_SIZE_LIMIT,
-            'data must be equal of smaller than ' + DATA_SIZE_LIMIT + ' bytes.'
-        );
-    }
-
-    assert(acls.length > 0, 'acls must be a non-empty array.');
-
-    header = new jute.protocol.RequestHeader();
-    header.type = jute.OP_CODES.CREATE;
-
-    payload = new jute.protocol.CreateRequest();
-    payload.path = path;
-    payload.acl = acls.map(function (item) {
-        return item.toRecord();
-    });
-    payload.flags = mode;
-
-    if (Buffer.isBuffer(data)) {
-        payload.data = new Buffer(data.length);
-        data.copy(payload.data);
-    }
-
-    request = new jute.Request(header, payload);
-
-    attempt(
-        self,
-        function (attempts, next) {
-            self.connectionManager.queue(request, function (error, response) {
-                if (error) {
-                    next(error);
-                    return;
-                }
-
-                next(null, response.payload.path);
-            });
-        },
-        callback
-    );
-};
-
-/**
- * Delete a node with the given path. If version is not -1, the request will
- * fail when the provided version does not match the server version.
- *
- * @method delete
- * @param path {String} The node path.
- * @param [version=-1] {Number} The version of the node.
- * @param callback {Function} The callback function.
- */
-Client.prototype.remove = function (path, version, callback) {
-    if (!callback) {
-        callback = version;
-        version = -1;
-    }
-
-    Path.validate(path);
-
-    assert(typeof callback === 'function', 'callback must be a function.');
-    assert(typeof version === 'number', 'version must be a number.');
-
-
-    var self = this,
-        header = new jute.protocol.RequestHeader(),
-        payload = new jute.protocol.DeleteRequest(),
-        request;
-
-    header.type = jute.OP_CODES.DELETE;
-
-    payload.path = path;
-    payload.version = version;
-
-    request = new jute.Request(header, payload);
-
-    attempt(
-        self,
-        function (attempts, next) {
-            self.connectionManager.queue(request, function (error, response) {
-                next(error);
-            });
-        },
-        callback
-    );
-};
-
-/**
- * Set the data for the node of the given path if such a node exists and the
- * optional given version matches the version of the node (if the given
- * version is -1, it matches any node's versions).
- *
- * @method setData
- * @param path {String} The node path.
- * @param data {Buffer} The data buffer.
- * @param [version=-1] {Number} The version of the node.
- * @param callback {Function} The callback function.
- */
-Client.prototype.setData = function (path, data, version, callback) {
-    if (!callback) {
-        callback = version;
-        version = -1;
-    }
-
-    Path.validate(path);
-
-    assert(typeof callback === 'function', 'callback must be a function.');
-    assert(typeof version === 'number', 'version must be a number.');
-
-    assert(
-        data === null || data === undefined || Buffer.isBuffer(data),
-        'data must be a valid buffer, null or undefined.'
-    );
-    if (Buffer.isBuffer(data)) {
-        assert(
-            data.length <= DATA_SIZE_LIMIT,
-            'data must be equal of smaller than ' + DATA_SIZE_LIMIT + ' bytes.'
-        );
-    }
-
-    var self = this,
-        header = new jute.protocol.RequestHeader(),
-        payload = new jute.protocol.SetDataRequest(),
-        request;
-
-    header.type = jute.OP_CODES.SET_DATA;
-
-    payload.path = path;
-    payload.data = new Buffer(data.length);
-    data.copy(payload.data);
-    payload.version = version;
-
-    request = new jute.Request(header, payload);
-
-    attempt(
-        self,
-        function (attempts, next) {
-            self.connectionManager.queue(request, function (error, response) {
-                if (error) {
-                    next(error);
-                    return;
-                }
-
-                next(null, response.payload.stat);
-            });
-        },
-        callback
-    );
-};
-
-/**
- *
- * Retrieve the data and the stat of the node of the given path.
- *
- * If the watcher is provided and the call is successful (no error), a watcher
- * will be left on the node with the given path.
- *
- * The watch will be triggered by a successful operation that sets data on
- * the node, or deletes the node.
- *
- * @method getData
- * @param path {String} The node path.
- * @param [watcher] {Function} The watcher function.
- * @param callback {Function} The callback function.
- */
-Client.prototype.getData = function (path, watcher, callback) {
-    if (!callback) {
-        callback = watcher;
-        watcher = undefined;
-    }
-
-    Path.validate(path);
-
-    assert(typeof callback === 'function', 'callback must be a function.');
-
-    var self = this,
-        header = new jute.protocol.RequestHeader(),
-        payload = new jute.protocol.GetDataRequest(),
-        request;
-
-    header.type = jute.OP_CODES.GET_DATA;
-
-    payload.path = path;
-    payload.watch = (typeof watcher === 'function');
-
-    request = new jute.Request(header, payload);
-
-    attempt(
-        self,
-        function (attempts, next) {
-            self.connectionManager.queue(request, function (error, response) {
-                if (error) {
-                    next(error);
-                    return;
-                }
-
-                if (watcher) {
-                    self.connectionManager.registerDataWatcher(path, watcher);
-                }
-
-                next(null, response.payload.data, response.payload.stat);
-            });
-        },
-        callback
-    );
-};
-
-/**
- * Set the ACL for the node of the given path if such a node exists and the
- * given version matches the version of the node (if the given version is -1,
- * it matches any node's versions).
- *
- *
- * @method setACL
- * @param path {String} The node path.
- * @param acls {Array} The array of ACL objects.
- * @param [version] {Number} The version of the node.
- * @param callback {Function} The callback function.
- */
-Client.prototype.setACL = function (path, acls, version, callback) {
-    if (!callback) {
-        callback = version;
-        version = -1;
-    }
-
-    Path.validate(path);
-    assert(typeof callback === 'function', 'callback must be a function.');
-    assert(
-        Array.isArray(acls) && acls.length > 0,
-        'acls must be a non-empty array.'
-    );
-    assert(typeof version === 'number', 'version must be a number.');
-
-    var self = this,
-        header = new jute.protocol.RequestHeader(),
-        payload = new jute.protocol.SetACLRequest(),
-        request;
-
-    header.type = jute.OP_CODES.SET_ACL;
-
-    payload.path = path;
-    payload.acl = acls.map(function (item) {
-        return item.toRecord();
-    });
-
-    payload.version = version;
-
-    request = new jute.Request(header, payload);
-
-    attempt(
-        self,
-        function (attempts, next) {
-            self.connectionManager.queue(request, function (error, response) {
-                if (error) {
-                    next(error);
-                    return;
-                }
-
-                next(null, response.payload.stat);
-            });
-        },
-        callback
-    );
-};
-
-/**
- * Retrieve the ACL list and the stat of the node of the given path.
- *
- * @method getACL
- * @param path {String} The node path.
- * @param callback {Function} The callback function.
- */
-Client.prototype.getACL = function (path, callback) {
-    Path.validate(path);
-    assert(typeof callback === 'function', 'callback must be a function.');
-
-    var self = this,
-        header = new jute.protocol.RequestHeader(),
-        payload = new jute.protocol.GetACLRequest(),
-        request;
-
-    header.type = jute.OP_CODES.GET_ACL;
-
-    payload.path = path;
-    request = new jute.Request(header, payload);
-
-    attempt(
-        self,
-        function (attempts, next) {
-            self.connectionManager.queue(request, function (error, response) {
-                if (error) {
-                    next(error);
-                    return;
-                }
-
-                var acls;
-
-                if (Array.isArray(response.payload.acl)) {
-                    acls = response.payload.acl.map(function (item) {
-                        return ACL.fromRecord(item);
-                    });
-                }
-
-                next(null, acls, response.payload.stat);
-            });
-        },
-        callback
-    );
-};
-
-/**
- * Check the existence of a node. The callback will be invoked with the
- * stat of the given path, or null if node such node exists.
- *
- * If the watcher function is provided and the call is successful (no error
- * from callback), a watcher will be placed on the node with the given path.
- * The watcher will be triggered by a successful operation that creates/delete
- * the node or sets the data on the node.
- *
- * @method exists
- * @param path {String} The node path.
- * @param [watcher] {Function} The watcher function.
- * @param callback {Function} The callback function.
- */
-Client.prototype.exists = function (path, watcher, callback) {
-    if (!callback) {
-        callback = watcher;
-        watcher = undefined;
-    }
-
-    Path.validate(path);
-    assert(typeof callback === 'function', 'callback must be a function.');
-
-    var self = this,
-        header = new jute.protocol.RequestHeader(),
-        payload = new jute.protocol.ExistsRequest(),
-        request;
-
-    header.type = jute.OP_CODES.EXISTS;
-
-    payload.path = path;
-    payload.watch = (typeof watcher === 'function');
-
-    request = new jute.Request(header, payload);
-
-    attempt(
-        self,
-        function (attempts, next) {
-            self.connectionManager.queue(request, function (error, response) {
-                if (error && error.getCode() !== Exception.NO_NODE) {
-                    next(error);
-                    return;
-                }
-
-                var existence = response.header.err === Exception.OK;
-
-                if (watcher) {
-                    if (existence) {
-                        self.connectionManager.registerDataWatcher(
-                            path,
-                            watcher
-                        );
-                    } else {
-                        self.connectionManager.registerExistenceWatcher(
-                            path,
-                            watcher
-                        );
-                    }
-                }
-
-                next(
-                    null,
-                    existence ? response.payload.stat : null
-                );
-            });
-        },
-        callback
-    );
-};
-
-/**
- * For the given node path, retrieve the children list and the stat.
- *
- * If the watcher callback is provided and the method completes successfully,
- * a watcher will be placed the given node. The watcher will be triggered
- * when an operation successfully deletes the given node or creates/deletes
- * the child under it.
- *
- * @method getChildren
- * @param path {String} The node path.
- * @param [watcher] {Function} The watcher function.
- * @param callback {Function} The callback function.
- */
-Client.prototype.getChildren = function (path, watcher, callback) {
-    if (!callback) {
-        callback = watcher;
-        watcher = undefined;
-    }
-
-    Path.validate(path);
-    assert(typeof callback === 'function', 'callback must be a function.');
-
-    var self = this,
-        header = new jute.protocol.RequestHeader(),
-        payload = new jute.protocol.GetChildren2Request(),
-        request;
-
-    header.type = jute.OP_CODES.GET_CHILDREN2;
-
-    payload.path = path;
-    payload.watch = (typeof watcher === 'function');
-
-    request = new jute.Request(header, payload);
-
-    attempt(
-        self,
-        function (attempts, next) {
-            self.connectionManager.queue(request, function (error, response) {
-                if (error) {
-                    next(error);
-                    return;
-                }
-
-                if (watcher) {
-                    self.connectionManager.registerChildWatcher(path, watcher);
-                }
-
-                next(null, response.payload.children, response.payload.stat);
-            });
-        },
-        callback
-    );
-};
-
-/**
- * Create node path in the similar way of `mkdir -p`
- *
- *
- * @method mkdirp
- * @param path {String} The node path.
- * @param [data=undefined] {Buffer} The data buffer.
- * @param [acls=ACL.OPEN_ACL_UNSAFE] {Array} The array of ACL object.
- * @param [mode=CreateMode.PERSISTENT] {CreateMode} The creation mode.
- * @param callback {Function} The callback function.
- */
-Client.prototype.mkdirp = function (path, data, acls, mode, callback) {
-    var optionalArgs = [data, acls, mode, callback],
-        self = this,
-        currentPath = '',
-        nodes;
-
-    Path.validate(path);
-
-    // Reset arguments so we can reassign correct value to them.
-    data = acls = mode = callback = undefined;
-    optionalArgs.forEach(function (arg, index) {
-        if (Array.isArray(arg)) {
-            acls = arg;
-        } else if (typeof arg === 'number') {
-            mode = arg;
-        } else if (Buffer.isBuffer(arg)) {
-            data = arg;
-        } else if (typeof arg === 'function') {
-            callback = arg;
-        }
-    });
-
-    assert(
-        typeof callback === 'function',
-        'callback must be a function.'
-    );
-
-    acls = Array.isArray(acls) ? acls : ACL.OPEN_ACL_UNSAFE;
-    mode = typeof mode === 'number' ? mode : CreateMode.PERSISTENT;
-
-    assert(
-        data === null || data === undefined || Buffer.isBuffer(data),
-        'data must be a valid buffer, null or undefined.'
-    );
-
-    if (Buffer.isBuffer(data)) {
-        assert(
-            data.length <= DATA_SIZE_LIMIT,
-            'data must be equal of smaller than ' + DATA_SIZE_LIMIT + ' bytes.'
-        );
-    }
-
-    assert(acls.length > 0, 'acls must be a non-empty array.');
-
-    // Remove the empty string
-    nodes = path.split('/').slice(1);
-
-    async.eachSeries(nodes, function (node, next) {
-        currentPath = currentPath + '/' + node;
-        self.create(currentPath, data, acls, mode, function (error) {
-            // Skip node exist error.
-            if (error && error.getCode() === Exception.NODE_EXISTS) {
-                next(null);
-                return;
-            }
-
-            next(error);
+    await this.packetManager.ready();
+    await this.connectionManager.ready();
+    await this.watcherManager.ready();
+
+    this.connectionManager.on(ConnectionEvent.connect, () => {
+      for (const credential of this.credentials) {
+        const packet = this.packetManager.auth;
+        packet.request.header.xid = Xid.authentication;
+        packet.request.payload.setValue({
+          type: 0, // ignored by the server
+          scheme: credential.scheme,
+          auth: credential.auth,
         });
-    }, function (error) {
-        callback(error, currentPath);
+
+        // Send inner-request without queue
+        this.connectionManager.socket.write(packet.request.toBuffer());
+
+        this.packetManager.recyclePacket(packet);
+      }
     });
-};
+  }
 
-/**
- * Create and return a new Transaction instance.
- *
- * @method transaction
- * @return {Transaction} an instance of Transaction.
- */
-Client.prototype.transaction = function () {
-    return new Transaction(this.connectionManager);
-};
+  /**
+   * The session id for this ZooKeeper client instance. The value returned is
+   * not valid until the client connects to a server and may change after a
+   * re-connect.
+   */
+  getSessionId() {
+    return this.connectionManager.sessionId;
+  }
 
-/**
- * Create a new ZooKeeper client.
- *
- * @method createClient
- * @for node-zookeeper-client
- */
-function createClient(connectionString, options) {
-    return new Client(connectionString, options);
+  /**
+   * The session password for this ZooKeeper client instance. The value
+   * returned is not valid until the client connects to a server and may
+   * change after a re-connect.
+   */
+  getSessionPassword() {
+    return this.connectionManager.sessionPassword;
+  }
+
+  /**
+   * The negotiated session timeout for this ZooKeeper client instance. The
+   * value returned is not valid until the client connects to a server and
+   * may change after a re-connect.
+   */
+  getSessionTimeout() {
+    return this.connectionManager.sessionTimeout;
+  }
+
+  /**
+   * Start the client and try to connect to the ensemble.
+   */
+  async connect() {
+    await this.ready();
+    await this.connectionManager.connect();
+  }
+
+  /**
+   * Close this client object. Once the client is closed, its session becomes
+   * invalid. All the ephemeral nodes in the ZooKeeper server associated with
+   * the session will be removed. The watches left on those nodes (and on
+   * their parents) will be triggered.
+   */
+  async close() {
+    await this.packetManager.close();
+    await this.connectionManager.close();
+    await this.watcherManager.close();
+
+    await new Promise(resolve => {
+      // await for other microtask, eg: watcherManager emit event
+      setTimeout(() => {
+        this.packetManager.clear();
+        this.connectionManager.clear();
+        this.watcherManager.clear();
+
+        resolve();
+      }, 0);
+    });
+  }
+
+  /**
+   * Create a node with the given path. The node data will be the given data,
+   * and node acl will be the given acl.
+   *
+   * The flags argument specifies whether the created node will be ephemeral
+   * or not.
+   *
+   * An ephemeral node will be removed by the ZooKeeper automatically when the
+   * session associated with the creation of the node expires.
+   *
+   * The flags argument can also specify to create a sequential node. The
+   * actual path name of a sequential node will be the given path plus a
+   * suffix "i" where i is the current sequential number of the node. The sequence
+   * number is always fixed length of 10 digits, 0 padded. Once
+   * such a node is created, the sequential number will be incremented by one.
+   *
+   * If a node with the same actual path already exists in the ZooKeeper, a
+   * KeeperException with error code KeeperException.NodeExists will be
+   * thrown. Note that since a different actual path is used for each
+   * invocation of creating sequential node with the same path argument, the
+   * call will never throw "file exists" KeeperException.
+   *
+   * If the parent node does not exist in the ZooKeeper, a KeeperException
+   * with error code KeeperException.NoNode will be thrown.
+   *
+   * An ephemeral node cannot have children. If the parent node of the given
+   * path is ephemeral, a KeeperException with error code
+   * KeeperException.NoChildrenForEphemerals will be thrown.
+   *
+   * This operation, if successful, will trigger all the watches left on the
+   * node of the given path by exists and getData API calls, and the watches
+   * left on the parent node by getChildren API calls.
+   *
+   * If a node is created successfully, the ZooKeeper server will trigger the
+   * watches on the path left by exists calls, and the watches on the parent
+   * of the node by getChildren calls.
+   *
+   * The maximum allowable size of the data array is 1 MB (1,048,576 bytes).
+   * Arrays larger than this will cause a KeeperExecption to be thrown.
+   *
+   * @param {string} path the path for the node
+   * @param {string|Buffer=} data the initial data for the node
+   * @param {Array<Jute.data.ACL>=} acl the acl for the node
+   * @param {number=} flags specifying whether the node to be created is ephemeral and/or sequential
+   */
+  async create(path, data, acl = Ids.OPEN_ACL_UNSAFE, flags = CreateMode.PERSISTENT) {
+    if (typeof path !== 'string') throw new Exception.Normal('path must be a string');
+    path = utils.normalizePath(path);
+
+    data = data ? Buffer.isBuffer(data) ? data : Buffer.from(data) : undefined;
+
+
+    const packet = this.packetManager.create;
+    packet.request.header.type = flags === CreateMode.CONTAINER ? OpCode.createContainer : OpCode.create;
+    packet.request.payload.setValue({
+      path,
+      acl,
+      flags,
+      data,
+    });
+
+    await this.connectionManager.send(packet);
+    const res = packet.response.payload.valueOf();
+    this.packetManager.recyclePacket(packet);
+
+    return res;
+  }
+
+  /**
+   * Create a node with the given path and returns the Stat of that node. The
+   * node data will be the given data and node acl will be the given acl.
+   *
+   * The flags argument specifies whether the created node will be ephemeral
+   * or not.
+   *
+   * An ephemeral node will be removed by the ZooKeeper automatically when the
+   * session associated with the creation of the node expires.
+   *
+   * The flags argument can also specify to create a sequential node. The
+   * actual path name of a sequential node will be the given path plus a
+   * suffix "i" where i is the current sequential number of the node. The sequence
+   * number is always fixed length of 10 digits, 0 padded. Once
+   * such a node is created, the sequential number will be incremented by one.
+   *
+   * If a node with the same actual path already exists in the ZooKeeper, a
+   * KeeperException with error code KeeperException.NodeExists will be
+   * thrown. Note that since a different actual path is used for each
+   * invocation of creating sequential node with the same path argument, the
+   * call will never throw "file exists" KeeperException.
+   *
+   * If the parent node does not exist in the ZooKeeper, a KeeperException
+   * with error code KeeperException.NoNode will be thrown.
+   *
+   * An ephemeral node cannot have children. If the parent node of the given
+   * path is ephemeral, a KeeperException with error code
+   * KeeperException.NoChildrenForEphemerals will be thrown.
+   *
+   * This operation, if successful, will trigger all the watches left on the
+   * node of the given path by exists and getData API calls, and the watches
+   * left on the parent node by getChildren API calls.
+   *
+   * If a node is created successfully, the ZooKeeper server will trigger the
+   * watches on the path left by exists calls, and the watches on the parent
+   * of the node by getChildren calls.
+   *
+   * The maximum allowable size of the data array is 1 MB (1,048,576 bytes).
+   * Arrays larger than this will cause a KeeperExecption to be thrown.
+   *
+   * @param {string} path the path for the node
+   * @param {string|Buffer=} data the initial data for the node
+   * @param {Array<Jute.data.ACL>=} acl the acl for the node
+   * @param {number=} flags specifying whether the node to be created is ephemeral and/or sequential
+   * @param {Buffer=} ttl specifying a TTL when mode is CreateMode.PERSISTENT_WITH_TTL or CreateMode.PERSISTENT_SEQUENTIAL_WITH_TTL
+   */
+  async create2(path, data, acl = Ids.OPEN_ACL_UNSAFE, flags = CreateMode.PERSISTENT, ttl) {
+    if (typeof path !== 'string') throw new Exception.Normal('path must be a string');
+    path = utils.normalizePath(path);
+
+    data = data ? Buffer.isBuffer(data) ? data : Buffer.from(data) : undefined;
+
+    let packet;
+    if (flags === CreateMode.PERSISTENT_WITH_TTL || flags === CreateMode.PERSISTENT_SEQUENTIAL_WITH_TTL) {
+      packet = this.packetManager.createTTL;
+      packet.request.payload.setValue({
+        path,
+        acl,
+        flags,
+        data,
+        ttl,
+      });
+    } else {
+      packet = this.packetManager.create2;
+      packet.request.header.type = flags === CreateMode.CONTAINER ? OpCode.createContainer : OpCode.create2;
+      packet.request.payload.setValue({
+        path,
+        acl,
+        flags,
+        data,
+      });
+    }
+
+    await this.connectionManager.send(packet);
+    const res = packet.response.payload.valueOf();
+    this.packetManager.recyclePacket(packet);
+
+    return res;
+  }
+
+  /**
+   * Delete the node with the given path. The call will succeed if such a node
+   * exists, and the given version matches the node's version (if the given
+   * version is -1, it matches any node's versions).
+   *
+   * A KeeperException with error code KeeperException.NoNode will be thrown
+   * if the nodes does not exist.
+   *
+   * A KeeperException with error code KeeperException.BadVersion will be
+   * thrown if the given version does not match the node's version.
+   *
+   * A KeeperException with error code KeeperException.NotEmpty will be thrown
+   * if the node has children.
+   *
+   * This operation, if successful, will trigger all the watches on the node
+   * of the given path left by exists API calls, and the watches on the parent
+   * node left by getChildren API calls.
+   *
+   * @param {string} path the path of the node to be deleted
+   * @param {number=} version the expected node version
+   */
+  async delete(path, version = -1) {
+    if (typeof path !== 'string') throw new Exception.Normal('path must be a string');
+    path = utils.normalizePath(path);
+
+    const packet = this.packetManager.delete;
+    packet.request.payload.setValue({
+      path, version,
+    });
+
+    await this.connectionManager.send(packet);
+    this.packetManager.recyclePacket(packet);
+  }
+
+  /**
+   * Set the data for the node of the given path if such a node exists and the
+   * given version matches the version of the node (if the given version is
+   * -1, it matches any node's versions). Return the stat of the node.
+   *
+   * This operation, if successful, will trigger all the watches on the node
+   * of the given path left by getData calls.
+   *
+   * A KeeperException with error code KeeperException.NoNode will be thrown
+   * if no node with the given path exists.
+   *
+   * A KeeperException with error code KeeperException.BadVersion will be
+   * thrown if the given version does not match the node's version.
+   *
+   * The maximum allowable size of the data array is 1 MB (1,048,576 bytes).
+   * Arrays larger than this will cause a KeeperException to be thrown.
+   *
+   * @param {string} path the path of the node
+   * @param {string|Buffer=} data the data to set
+   * @param {number=} version the expected matching version
+   */
+  async setData(path, data, version = -1) {
+    if (typeof path !== 'string') throw new Exception.Normal('path must be a string');
+    path = utils.normalizePath(path);
+
+    data = data ? Buffer.isBuffer(data) ? data : Buffer.from(data) : undefined;
+
+    const packet = this.packetManager.setData;
+    packet.request.payload.setValue({
+      path,
+      data,
+      version,
+    });
+
+    await this.connectionManager.send(packet);
+    const res = packet.response.payload.valueOf();
+    this.packetManager.recyclePacket(packet);
+
+    return res;
+  }
+
+  /**
+   *
+   * Return the data and the stat of the node of the given path.
+   *
+   * If the watch is non-null and the call is successful (no exception is
+   * thrown), a watch will be left on the node with the given path. The watch
+   * will be triggered by a successful operation that sets data on the node, or
+   * deletes the node.
+   *
+   * A KeeperException with error code KeeperException.NoNode will be thrown
+   * if no node with the given path exists.
+   *
+   * @param {string} path The node path.
+   * @param {(event: { type: number, state: number, path: string }) => any=} watcher The watcher function.
+   */
+  async getData(path, watcher) {
+    if (typeof path !== 'string') throw new Exception.Normal('path must be a string');
+    path = utils.normalizePath(path);
+
+    const packet = this.packetManager.getData;
+    packet.request.payload.setValue({
+      path,
+      watch: (typeof watcher === 'function'),
+    });
+
+    await this.connectionManager.send(packet);
+    const res = packet.response.payload.valueOf();
+    this.packetManager.recyclePacket(packet);
+
+    if (typeof watcher === 'function') this.watcherManager.registerDataWatcher(path, watcher);
+
+    return res;
+  }
+
+  /**
+   * Set the ACL for the node of the given path if such a node exists and the
+   * given aclVersion matches the acl version of the node. Return the stat of the
+   * node.
+   *
+   * A KeeperException with error code KeeperException.NoNode will be thrown
+   * if no node with the given path exists.
+   *
+   * A KeeperException with error code KeeperException.BadVersion will be
+   * thrown if the given aclVersion does not match the node's aclVersion.
+   *
+   * @param {string} path the given path for the node
+   * @param {Array<Jute.data.ACL>=} acl the given acl for the node
+   * @param {number=} version the given acl version of the node
+   */
+  async setACL(path, acl, version = -1) {
+    if (typeof path !== 'string') throw new Exception.Normal('path must be a string');
+    path = utils.normalizePath(path);
+
+    const packet = this.packetManager.setACL;
+    packet.request.payload.setValue({
+      path,
+      acl,
+      version,
+    });
+
+    await this.connectionManager.send(packet);
+    const res = packet.response.payload.valueOf();
+    this.packetManager.recyclePacket(packet);
+
+    return res;
+  }
+
+  /**
+   * Retrieve the ACL list and the stat of the node of the given path.
+   *
+   * @param {string} path The node path.
+   */
+  async getACL(path) {
+    if (typeof path !== 'string') throw new Exception.Normal('path must be a string');
+    path = utils.normalizePath(path);
+
+    const packet = this.packetManager.getACL;
+    packet.request.payload.setValue({
+      path,
+    });
+
+    await this.connectionManager.send(packet);
+    const res = packet.response.payload.valueOf();
+    this.packetManager.recyclePacket(packet);
+
+    return res;
+  }
+
+  /**
+   * Return the stat of the node of the given path. Return null if no such a
+   * node exists.
+   *
+   * If the watch is non-null and the call is successful (no exception is thrown),
+   * a watch will be left on the node with the given path. The watch will be
+   * triggered by a successful operation that creates/delete the node or sets
+   * the data on the node.
+   *
+   * @param {string} path the node path
+   * @param {(event: { type: number, state: number, path: string }) => any=} watcher explicit watcher
+   */
+  async exists(path, watcher) {
+    if (typeof path !== 'string') throw new Exception.Normal('path must be a string');
+    path = utils.normalizePath(path);
+
+    const packet = this.packetManager.exists;
+    packet.request.payload.setValue({
+      path,
+      watch: (typeof watcher === 'function'),
+    });
+
+    try {
+      await this.connectionManager.send(packet);
+      const res = packet.response.payload.valueOf();
+      this.packetManager.recyclePacket(packet);
+
+      if (typeof watcher === 'function') this.watcherManager.registerDataWatcher(path, watcher);
+
+      return res;
+    } catch (err) {
+      if (err.code !== ExceptionCode.NO_NODE) throw err;
+
+      if (typeof watcher === 'function') this.watcherManager.registerExistWatcher(path, watcher);
+
+      return null;
+    }
+  }
+
+  /**
+   * Return the list of the children of the node of the given path.
+   *
+   * If the watch is non-null and the call is successful (no exception is thrown),
+   * a watch will be left on the node with the given path. The watch will be
+   * triggered by a successful operation that deletes the node of the given
+   * path or creates/delete a child under the node.
+   *
+   * The list of children returned is not sorted and no guarantee is provided
+   * as to its natural or lexical order.
+   *
+   * A KeeperException with error code KeeperException.NoNode will be thrown
+   * if no node with the given path exists.
+   *
+   * @param {string} path the node path
+   * @param {(event: { type: number, state: number, path: string }) => any=} watcher explicit watcher
+   */
+  async getChildren(path, watcher) {
+    if (typeof path !== 'string') throw new Exception.Normal('path must be a string');
+    path = utils.normalizePath(path);
+
+    const packet = this.packetManager.getChildren;
+    packet.request.payload.setValue({
+      path,
+      watch: (typeof watcher === 'function'),
+    });
+
+    await this.connectionManager.send(packet);
+    const res = packet.response.payload.valueOf();
+    this.packetManager.recyclePacket(packet);
+
+    if (typeof watcher === 'function') this.watcherManager.registerChildWatcher(path, watcher);
+
+    return res;
+  }
+
+  /**
+   * For the given znode path return the stat and children list.
+   *
+   * If the watch is non-null and the call is successful (no exception is thrown),
+   * a watch will be left on the node with the given path. The watch will be
+   * triggered by a successful operation that deletes the node of the given
+   * path or creates/delete a child under the node.
+   *
+   * The list of children returned is not sorted and no guarantee is provided
+   * as to its natural or lexical order.
+   *
+   * A KeeperException with error code KeeperException.NoNode will be thrown
+   * if no node with the given path exists.
+   *
+   * @param {string} path the node path
+   * @param {(event: { type: number, state: number, path: string }) => any=} watcher explicit watcher
+   */
+  async getChildren2(path, watcher) {
+    if (typeof path !== 'string') throw new Exception.Normal('path must be a string');
+    path = utils.normalizePath(path);
+
+    const packet = this.packetManager.getChildren2;
+    packet.request.payload.setValue({
+      path,
+      watch: (typeof watcher === 'function'),
+    });
+
+    await this.connectionManager.send(packet);
+    const res = packet.response.payload.valueOf();
+    this.packetManager.recyclePacket(packet);
+
+    if (typeof watcher === 'function') this.watcherManager.registerChildWatcher(path, watcher);
+
+    return res;
+  }
+
+  /**
+   * Gets all numbers of children nodes under a specific path
+   *
+   * @param {string} path
+   */
+  async getAllChildrenNumber(path) {
+    if (typeof path !== 'string') throw new Exception.Normal('path must be a string');
+    path = utils.normalizePath(path);
+
+    const packet = this.packetManager.getAllChildrenNumber;
+    packet.request.payload.setValue({
+      path,
+    });
+
+    await this.connectionManager.send(packet);
+    const res = packet.response.payload.valueOf();
+    this.packetManager.recyclePacket(packet);
+
+    return res;
+  }
+
+  /**
+   * Gets all the ephemeral nodes matching prefixPath
+   * created by this session.  If prefixPath is "/" then it returns all
+   * ephemerals
+   *
+   * @param {string} prefixPath
+   */
+  async getEphemerals(prefixPath = '/') {
+    if (typeof prefixPath !== 'string') throw new Exception.Normal('path must be a string');
+    prefixPath = utils.normalizePath(prefixPath);
+
+    const packet = this.packetManager.getEphemerals;
+    packet.request.payload.setValue({
+      prefixPath,
+    });
+
+    await this.connectionManager.send(packet);
+    const res = packet.response.payload.valueOf();
+    this.packetManager.recyclePacket(packet);
+
+    return res;
+  }
+
+  /**
+   * Flushes channel between process and leader.
+   *
+   * @param {string} path
+   */
+  async sync(path) {
+    if (typeof path !== 'string') throw new Exception.Normal('path must be a string');
+    path = utils.normalizePath(path);
+
+    const packet = this.packetManager.sync;
+    packet.request.payload.setValue({
+      path,
+    });
+
+    await this.connectionManager.send(packet);
+    const res = packet.response.payload.valueOf();
+    this.packetManager.recyclePacket(packet);
+
+    return res;
+  }
+
+  /**
+   * A Transaction is a thin wrapper on the multi method
+   * which provides a builder object that can be used to construct
+   * and commit an atomic set of operations.
+   */
+  transaction() {
+    return new Transaction(this);
+  }
+
+  getChildWatches() {
+    return Object.keys(this.watcherManager.childWatchers);
+  }
+
+  getDataWatches() {
+    return Object.keys(this.watcherManager.dataWatchers);
+  }
+
+  getExistWatches() {
+    return Object.keys(this.watcherManager.existWatchers);
+  }
+
+  /**
+   * For the given znode path, removes the specified watcher of given
+   * watcherType.
+   *
+   * Watcher shouldn't be null. A successful call guarantees that, the
+   * removed watcher won't be triggered.
+   *
+   * @param {string} path the path of the node
+   * @param {(event: { type: number, state: number, path: string }) => any} watcher explicit watcher
+   * @param {number} type the type of watcher to be removed
+   */
+  async removeWatches(path, watcher, type) {
+    if (typeof path !== 'string') throw new Exception.Normal('path must be a string');
+    path = utils.normalizePath(path);
+
+    const packet = this.packetManager.checkWatches;
+    packet.request.payload.setValue({
+      path,
+      type,
+    });
+
+    await this.connectionManager.send(packet);
+    this.packetManager.recyclePacket(packet);
+
+    this.watcherManager.removeWatches(path, type, watcher);
+  }
+
+  /**
+   * For the given znode path, removes all the registered watchers of given
+   * watcherType.
+   *
+   * A successful call guarantees that, the removed watchers won't be
+   * triggered.
+   *
+   * @param {string} path the path of the node
+   * @param {number} type the type of watcher to be removed
+   */
+  async removeAllWatches(path, type) {
+    if (typeof path !== 'string') throw new Exception.Normal('path must be a string');
+    path = utils.normalizePath(path);
+
+    const packet = this.packetManager.removeWatches;
+    packet.request.payload.setValue({
+      path,
+      type,
+    });
+
+    await this.connectionManager.send(packet);
+    this.packetManager.recyclePacket(packet);
+
+    this.watcherManager.removeWatches(path, type);
+  }
+
+  /**
+   * Return the last committed configuration (as known to the server to which the client is connected)
+   * and the stat of the configuration.
+   *
+   * If the watch is non-null and the call is successful (no exception is
+   * thrown), a watch will be left on the configuration node (ZooDefs.CONFIG_NODE). The watch
+   * will be triggered by a successful reconfig operation
+   *
+   * A KeeperException with error code KeeperException.NoNode will be thrown
+   * if the configuration node doesn't exists.
+   *
+   * @param {(event: { type: number, state: number, path: string }) => any=} watcher explicit watcher
+   */
+  async getConfig(watcher) {
+    return await this.getData(this.options.configNode, watcher);
+  }
+
 }
 
-exports.createClient = createClient;
-exports.ACL = ACL;
-exports.Id = Id;
-exports.Permission = Permission;
+exports = module.exports = Client;
+
+/**
+ *
+ * @param {string} connectionString
+ * @param {Options=} options
+ */
+exports.createClient = (connectionString, options) => new Client(connectionString, options);
 exports.CreateMode = CreateMode;
-exports.State = State;
-exports.Event = Event;
-exports.Exception = Exception;
+exports.OpCode = OpCode;
+exports.Perms = Perms;
+exports.Xid = Xid;
+exports.WatcherType = WatcherType;
+exports.EventType = EventType;
+exports.EventState = EventState;
+exports.ExceptionCode = ExceptionCode;
+exports.ConnectionEvent = ConnectionEvent;
+exports.Ids = Ids;

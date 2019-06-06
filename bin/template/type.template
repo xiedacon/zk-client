@@ -1,0 +1,52 @@
+/**
+ * This file created by ./bin/gen_types
+ * Do not modify this file!!!!!!!!!
+ */
+'use strict';
+
+${clazz.deps.map(dep => `const ${dep.name} = require('${dep.path}');`).join('\n')}
+
+const ${clazz.parentClazz} = require('../basic/${clazz.parentClazz}');
+
+module.exports = class ${clazz.name} extends ${clazz.parentClazz} {
+  /**
+   * @typedef {object} Value
+   * ${clazz.attrs.map(({ name, type }) => `@property {${type.realType.split(/\|/g).map(t => type.subType ? `${t}<${type.subType.jsType}>` : t).join('|')}=} ${name}`).join('\n   * ')}
+   *
+   * @param {Value} value
+   */
+  constructor(value = {}) {
+    const newValue = {
+      ${clazz.attrs.map(({ name, type }) => `${name}: new ${type.name}(value.${name}${type.subType ? `, ${type.subType.name}` : ''}),`).join('\n      ')}
+    };
+
+    super([
+      ${clazz.attrs.map(({ name, type }) => `{ name: '${name}', value: newValue.${name} },`).join('\n      ')}
+    ]);
+
+    this._value = newValue;
+  }
+
+  ${clazz.attrs.map(({ name, type }) => `get ${name}() {
+    return this._value.${name}.valueOf();
+  }
+
+  set ${name}(value) {
+    this._value.${name}.setValue(value);
+  }`).join('\n\n  ')}
+
+  /**
+   *
+   * @param {Value} value
+   */
+  setValue(value = {}) {
+    super.setValue(value);
+  }
+
+  valueOf() {
+    return {
+      ${clazz.attrs.map(({ name, type }) => `${name}: this.${name},`).join('\n      ')}
+    };
+  }
+
+};
