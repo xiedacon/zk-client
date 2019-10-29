@@ -393,7 +393,11 @@ export class Client {
    *
    * @param {(event: { type: number, state: number, path: string }) => any=} watcher explicit watcher
    */
-  getConfig(wathcer?: (event: { type: number, state: number, path: string }) => any): Promise<{ data: Buffer; stat: Stat }>
+  getConfig(wathcer?: (event: { type: number, state: number, path: string }) => any): Promise<{ data: Buffer; stat: Stat }>;
+  /**
+   * mkdir -p
+   */
+  mkdirp(path: string, data?: string | Buffer, acl?: Array<ACL>, flags?: number): this;
 }
 
 export type Options = {
