@@ -397,7 +397,7 @@ export class Client {
   /**
    * mkdir -p
    */
-  mkdirp(path: string, data?: string | Buffer, acl?: Array<ACL>, flags?: number): this;
+  mkdirp(path: string, data?: string | Buffer, acl?: Array<ACL>, flags?: number): Promise<void>;
 }
 
 export type Options = {
