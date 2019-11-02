@@ -73,8 +73,54 @@ export interface Transaction {
   commit(): Promise<{ header: { type: number; done: boolea; err: number; }, payload: object }>;
 }
 
+export interface Shell {
+  /**
+   * touch
+   */
+  touch(path: string): Promise<void>;
+  /**
+   * mkdir -p
+   */
+  mkdirp(path: string): Promise<void>;
+  /**
+   * cp
+   */
+  cp(from: string, to: string): Promise<void>;
+  /**
+   * cp -r
+   */
+  cpr(from: string, to: string): Promise<void>;
+  /**
+   * mv
+   */
+  mv(from: string, to: string): Promise<void>;
+  /**
+   * ls
+   */
+  ls(path: string): Promise<Array<string>>;
+  /**
+   * tree
+   */
+  tree(path: string): Promise<Array<string>>;
+  /**
+   * cat
+   */
+  cat(path: string): Promise<string>;
+  /**
+   * rm
+   */
+  rm(path: string): Promise<void>;
+  /**
+   * rm -rf
+   */
+  rmrf(path: string): Promise<void>;
+}
+
 export class Client {
   constructor(connectionString: string, options?: Options);
+  logger: Logger;
+  shell: Shell;
+  ready(): Promise<void>;
   /**
    * The session id for this ZooKeeper client instance. The value returned is
    * not valid until the client connects to a server and may change after a
@@ -394,10 +440,6 @@ export class Client {
    * @param {(event: { type: number, state: number, path: string }) => any=} watcher explicit watcher
    */
   getConfig(wathcer?: (event: { type: number, state: number, path: string }) => any): Promise<{ data: Buffer; stat: Stat }>;
-  /**
-   * mkdir -p
-   */
-  mkdirp(path: string, data?: string | Buffer, acl?: Array<ACL>, flags?: number): Promise<void>;
 }
 
 export type Options = {
