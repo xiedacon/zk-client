@@ -42,7 +42,11 @@ export default class Shell {
 
     for (const part of parts) {
       parent = `${parent}/${part}`;
-      await this.touch(parent);
+      try {
+        await this.client.create(parent);
+      } catch (err) {
+        if (err.code !== ExceptionCode.NODE_EXISTS) throw err;
+      }
     }
   }
 
