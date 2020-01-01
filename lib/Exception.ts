@@ -3,35 +3,37 @@
  *
  * Copyright (c) 2019 Souche.com, all rights reserved.
  */
-'use strict';
 
-const _ = require('lodash');
-const util = require('util');
+import * as _ from 'lodash';
+import * as util from 'util';
 
-const {
+import {
   ExceptionCode,
-} = require('./constants');
+} from './constants';
 
 const codeToName = _.invert(ExceptionCode);
 
-module.exports = class Exception extends Error {
+export default class Exception extends Error {
+  args: Array<any>;
+  code: number;
+
   /**
    * Exception class for all zookeeper errors.
    *
-   * @param {string} name Exception code.
-   * @param {Array<any>} args Name of the exception.
+   * @param name Exception code.
+   * @param args Name of the exception.
    */
-  constructor(name, ...args) {
+  constructor(name: string, ...args: Array<any>) {
     super();
 
     this.name = name;
     this.args = args;
 
-    let code;
-    let type;
-    let message;
-    let value;
-    let path;
+    let code: number;
+    let type: string;
+    let message: string;
+    let value: any;
+    let path: string;
     switch (name) {
       case 'TypeError':
         [ type, value ] = args;
@@ -49,31 +51,19 @@ module.exports = class Exception extends Error {
     }
   }
 
-  /**
-   * @return {new (type: string, value: any) => Exception}
-   */
-  static get Type() {
+  static get Type(): new (type: string, value: any) => Exception {
     return Exception.bind(null, 'TypeError');
   }
 
-  /**
-   * @return {new (code: number, path?: string) => Exception}
-   */
-  static get Protocol() {
+  static get Protocol(): new (code: number, path?: string) => Exception {
     return Exception.bind(null, 'ProtocolError');
   }
 
-  /**
-   * @return {new (message: string) => Exception}
-   */
-  static get Unknow() {
+  static get Unknow(): new (message: string) => Exception {
     return Exception.bind(null, 'UnknowError');
   }
 
-  /**
-   * @return {new (message: string) => Exception}
-   */
-  static get Normal() {
+  static get Normal(): new (message: string) => Exception {
     return Exception.bind(null, 'NormalError');
   }
 
@@ -81,4 +71,4 @@ module.exports = class Exception extends Error {
     return this.message;
   }
 
-};
+}

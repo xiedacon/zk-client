@@ -3,51 +3,39 @@
  *
  * Copyright (c) 2019 Souche.com, all rights reserved.
  */
-'use strict';
 
-const {
+
+import {
   OpCode,
-} = require('./constants');
-const jute = require('./jute');
-const Response = require('./Response');
+} from './constants';
+import jute from './jute';
+import Response from './Response';
 
-class TransactionResponse extends Response {
+export default class TransactionResponse extends Response<Jute.basic.ResponseRecord> {
+  payloads: Array<Jute.basic.ResponseRecord | null> = [];
+
   constructor() {
-    super();
-
-    /** @type {Array<Jute.basic.ResponseRecord>} */
-    this.payload = [];
+    super(new jute.basic.EmptyResponseRecord());
   }
 
-  /**
-   *
-   * @param {string} path
-   */
-  setChrootPath(path) {
+  setChrootPath(path: string) {
     this.chrootPath = path;
   }
 
-  /**
-   *
-   * @param {Jute.basic.ResponseRecord} record
-   */
-  push(record) {
-    this.payload.push(
+  push(record: Jute.basic.ResponseRecord | null) {
+    this.payloads.push(
+      // eslint-disable-next-line @typescript-eslint/ban-ts-ignore
+      // @ts-ignore
       new jute.proto.MultiHeader(),
       record
     );
   }
 
-  /**
-   *
-   * @param {Buffer} buffer
-   * @param {number} offset
-   */
-  fromBuffer(buffer, offset = 0) {
+  fromBuffer(buffer: Buffer, offset = 0) {
     let bytesRead = 0;
     bytesRead += this.header.deserialize(buffer, offset + bytesRead);
 
-    for (let i = 0; i < this.payload.length; i++) {
+    for (let i = 0; i < this.payloads.length; i++) {
       const record = this.payload[i];
 
       if (record) {
@@ -67,15 +55,15 @@ class TransactionResponse extends Response {
   }
 
   [Symbol.iterator]() {
-    const payload = this.payload;
+    const payloads = this.payloads;
     return (function* () {
-      for (let i = 0; i < payload.length; i += 2) {
+      for (let i = 0; i < payloads.length; i += 2) {
         yield {
           // Forced type conversion just like Java
-          /** @type {Jute.proto.MultiHeader} */
+          // eslint-disable-next-line @typescript-eslint/ban-ts-ignore
           // @ts-ignore
-          header: payload[i],
-          payload: payload[i + 1],
+          header: payloads[i] as Jute.proto.MultiHeader,
+          payload: payloads[i + 1],
         };
       }
     })();

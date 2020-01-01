@@ -3,29 +3,23 @@
  *
  * Copyright (c) 2019 Souche.com, all rights reserved.
  */
-'use strict';
 
-const _ = require('lodash');
-const util = require('util');
+import * as _ from 'lodash';
+import * as util from 'util';
 
-const {
+import {
   OpCode,
-} = require('./constants');
-const jute = require('./jute');
-const Request = require('./Request');
+} from './constants';
+import jute from './jute';
+import Request from './Request';
 
-/** @type {Map<object, number>} */
-const recordProtoToOpCode = new Map();
+const recordProtoToOpCode = new Map<object, number>();
 recordProtoToOpCode.set(jute.proto.CreateRequest.prototype, OpCode.create);
 recordProtoToOpCode.set(jute.proto.DeleteRequest.prototype, OpCode.delete);
 recordProtoToOpCode.set(jute.proto.SetDataRequest.prototype, OpCode.setData);
 recordProtoToOpCode.set(jute.proto.CheckVersionRequest.prototype, OpCode.check);
 
-/**
- *
- * @param {Jute.basic.RequestRecord} record
- */
-function recordToOpCode(record) {
+function recordToOpCode(record: Jute.basic.RequestRecord) {
   let opCode = recordProtoToOpCode.get(Object.getPrototypeOf(record));
 
   if (opCode === undefined) {
@@ -38,27 +32,22 @@ function recordToOpCode(record) {
     } else if (record instanceof jute.proto.CheckVersionRequest) {
       opCode = OpCode.check;
     } else {
-      throw new Error('Unsupport RequestRecord: ' + _.get(Object.getPrototypeOf(record), [ 'constructor', 'name' ], util.inspect(record)));
+      throw new Error(`Unsupport RequestRecord: ${_.get(Object.getPrototypeOf(record), [ 'constructor', 'name' ], util.inspect(record))}`);
     }
   }
 
   return opCode;
 }
 
-module.exports = class TransactionRequest extends Request {
-  constructor() {
-    super(OpCode.multi);
+export default class TransactionRequest extends Request<Jute.basic.RequestRecord> {
+  payloads: Array<Jute.basic.RequestRecord> = [];
 
-    /** @type {Array<Jute.basic.RequestRecord>} */
-    this.payload = [];
+  constructor() {
+    super(OpCode.multi, new jute.basic.EmptyRequestRecord());
   }
 
-  /**
-   *
-   * @param {Jute.basic.RequestRecord} record
-   */
-  push(record) {
-    this.payload.push(
+  push(record: Jute.basic.RequestRecord) {
+    this.payloads.push(
       new jute.proto.MultiHeader({
         type: recordToOpCode(record),
         done: false,
@@ -71,17 +60,17 @@ module.exports = class TransactionRequest extends Request {
   /**
    * Serialize the request to a buffer.
    *
-   * @return {Buffer} The buffer which contains the serialized request.
+   * @return The buffer which contains the serialized request.
    */
   toBuffer() {
     // Signal the end of the ops.
-    this.payload.push(new jute.proto.MultiHeader({
+    this.payloads.push(new jute.proto.MultiHeader({
       type: -1,
       done: true,
       err: -1,
     }));
 
-    const payload = this.payload.filter(Boolean);
+    const payload = this.payloads.filter(Boolean);
     if (this.chrootPath) {
       for (const record of payload) {
         record.setChrootPath(this.chrootPath);
@@ -102,4 +91,4 @@ module.exports = class TransactionRequest extends Request {
     ]);
   }
 
-};
+}

@@ -1,9 +1,0 @@
-{
-  "extends": "eslint-config-egg",
-  "rules": {
-    "valid-jsdoc": "off",
-    "jsdoc/require-returns-check": "off",
-    "jsdoc/require-param-description": "off",
-    "jsdoc/require-returns-description": "off"
-  }
-}

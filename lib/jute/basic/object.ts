@@ -3,19 +3,16 @@
  *
  * Copyright (c) 2019 Souche.com, all rights reserved.
  */
-'use strict';
 
-const type = require('./type');
+import type from './type';
 
 /**
  * Abstract class for all jute object types
  */
-module.exports = class _object extends type {
-  /**
-   *
-   * @param {Array<{ name: string, value: type }>} value
-   */
-  constructor(value) {
+export default class _object extends type {
+  attrs: Array<{ name: string; value: type }>;
+
+  constructor(value: Array<{ name: string; value: type }>) {
     super();
 
     this.attrs = value;
@@ -34,10 +31,10 @@ module.exports = class _object extends type {
   /**
    * Serialize the content to a buffer.
    *
-   * @param {Buffer} buffer buffer
-   * @param {number} offset offset
+   * @param buffer buffer
+   * @param offset offset
    */
-  serialize(buffer, offset) {
+  serialize(buffer: Buffer, offset: number) {
     let bytesWritten = 0;
 
     for (const attr of this.attrs) {
@@ -50,10 +47,10 @@ module.exports = class _object extends type {
   /**
    * De-serialize the content from a buffer.
    *
-   * @param {Buffer} buffer buffer
-   * @param {number} offset offset
+   * @param buffer buffer
+   * @param offset offset
    */
-  deserialize(buffer, offset) {
+  deserialize(buffer: Buffer, offset: number) {
     let bytesRead = 0;
 
     for (const attr of this.attrs) {
@@ -63,11 +60,7 @@ module.exports = class _object extends type {
     return bytesRead;
   }
 
-  /**
-   *
-   * @param {any} value
-   */
-  setValue(value) {
+  setValue(value: any) {
     value = value instanceof type ? value.valueOf() : value;
 
     for (const attr of this.attrs) {
@@ -81,4 +74,4 @@ module.exports = class _object extends type {
     }
   }
 
-};
+}

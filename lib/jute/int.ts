@@ -3,18 +3,15 @@
  *
  * Copyright (c) 2019 Souche.com, all rights reserved.
  */
-'use strict';
 
-const Exception = require('../Exception');
+import Exception from '../Exception';
 
-const type = require('./basic/type');
+import type from './basic/type';
 
-module.exports = class int extends type {
-  /**
-   *
-   * @param {int|number} value
-   */
-  constructor(value = 0) {
+export default class int extends type {
+  private value: number;
+
+  constructor(value: int | number = 0) {
     super();
 
     this.setValue(value);
@@ -24,12 +21,7 @@ module.exports = class int extends type {
     return 4;
   }
 
-  /**
-   *
-   * @param {Buffer} buffer
-   * @param {number} offset
-   */
-  serialize(buffer, offset) {
+  serialize(buffer: Buffer, offset: number) {
     const bytesWritten = 4;
 
     if (typeof this.value === 'number') {
@@ -41,22 +33,13 @@ module.exports = class int extends type {
     return bytesWritten;
   }
 
-  /**
-   *
-   * @param {Buffer} buffer
-   * @param {number} offset
-   */
-  deserialize(buffer, offset) {
+  deserialize(buffer: Buffer, offset: number) {
     this.value = buffer.readInt32BE(offset);
 
     return 4;
   }
 
-  /**
-   *
-   * @param {int|number} value
-   */
-  setValue(value = 0) {
+  setValue(value: int | number = 0) {
     this.value = value instanceof type ? value.valueOf() : value;
 
     if (typeof this.value !== 'number') throw new Exception.Type('number', value);
@@ -66,11 +49,8 @@ module.exports = class int extends type {
     this.value = 0;
   }
 
-  /**
-   * @return {number}
-   */
   valueOf() {
     return this.value;
   }
 
-};
+}

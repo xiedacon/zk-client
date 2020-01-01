@@ -149,11 +149,11 @@ const juteDFn = new Function('jute', `return \`${juteDTemplate}\``);
 // eslint-disable-next-line no-new-func
 const typeFn = new Function('jute', 'clazz', `return \`${typeTemplate}\``);
 
-fs.writeFileSync(`${__dirname}/../lib/jute/index.js`, indexFn(jute));
+fs.writeFileSync(`${__dirname}/../lib/jute/index.ts`, indexFn(jute));
 fs.writeFileSync(`${__dirname}/../lib/jute/jute.d.ts`, juteDFn(jute));
 
 for (const { name, clazzes } of Object.values(jute)) {
   for (const clazz of Object.values(clazzes)) {
-    fs.writeFileSync(`${__dirname}/../lib/jute/${name}/${clazz.name}.js`, typeFn(jute, clazz));
+    fs.writeFileSync(`${__dirname}/../lib/jute/${name}/${clazz.name}.ts`, typeFn(jute, clazz));
   }
 }

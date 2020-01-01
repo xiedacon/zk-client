@@ -3,31 +3,22 @@
  *
  * Copyright (c) 2019 Souche.com, all rights reserved.
  */
-'use strict';
 
-const Exception = require('../Exception');
+import Exception from '../Exception';
 
-const Type = require('./basic/type');
+import Type from './basic/type';
 
-/**
- * @template T
- */
-module.exports = class vector extends Type {
-  /**
-   *
-   * @param {vector<T>|Array<T>} value
-   * @param {typeof Type} type
-   */
-  constructor(value = [], type) {
+export default class vector<T> extends Type {
+  private type: typeof Type;
+  private value: Array<Type>;
+
+  constructor(value: vector<T> | Array<T> = [], type: typeof Type) {
     super();
 
     this.type = type;
     this.setValue(value);
   }
 
-  /**
-   * Calculate and return the size of the buffer which is need to serialize this.
-   */
   byteLength() {
     let length = 4;
 
@@ -40,13 +31,7 @@ module.exports = class vector extends Type {
     return length;
   }
 
-  /**
-   * Serialize the content to a buffer.
-   *
-   * @param {Buffer} buffer buffer
-   * @param {number} offset offset
-   */
-  serialize(buffer, offset) {
+  serialize(buffer: Buffer, offset: number) {
     let bytesWritten = 4;
 
     if (Array.isArray(this.value)) {
@@ -63,18 +48,12 @@ module.exports = class vector extends Type {
     return bytesWritten;
   }
 
-  /**
-   * De-serialize the content from a buffer.
-   *
-   * @param {Buffer} buffer buffer
-   * @param {number} offset offset
-   */
-  deserialize(buffer, offset) {
+  deserialize(buffer: Buffer, offset: number) {
     const length = buffer.readInt32BE(offset);
     let bytesRead = 4;
 
     if (length === -1) {
-      this.value = undefined;
+      this.value = [];
     } else {
       this.value = [];
       while (length > this.value.length) {
@@ -88,17 +67,11 @@ module.exports = class vector extends Type {
     return bytesRead;
   }
 
-  /**
-   *
-   * @param {vector<T>|Array<T>} value
-   */
-  setValue(value = []) {
+  setValue(value: vector<T> | Array<T> = []) {
     const newValue = value instanceof Type ? value.valueOf() : value;
 
     if (!Array.isArray(newValue)) throw new Exception.Type('Array', value);
 
-    /** @type {Array<Type>} */
-    // @ts-ignore
     this.value = newValue.map(v => new this.type(v));
   }
 
@@ -106,11 +79,8 @@ module.exports = class vector extends Type {
     this.value = [];
   }
 
-  /**
-   * @return {Array<T>}
-   */
-  valueOf() {
+  valueOf(): Array<T> {
     return this.value.map(v => v.valueOf());
   }
 
-};
+}

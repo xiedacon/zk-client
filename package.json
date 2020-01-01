@@ -20,7 +20,11 @@
     "test-cov": "nyc ava test/**",
     "report": "nyc report --reporter=html",
     "cov": "npm run test-cov && npm run report",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "build": "tsc --build tsconfig.json",
+    "clean": "tsc --build tsconfig.json --clean",
+    "prepublish": "npm run build",
+    "postpublish": "npm run clean"
   },
   "engines": {
     "node": ">=8.9.0"
@@ -35,9 +39,12 @@
     }
   ],
   "devDependencies": {
-    "@types/node": "^12.0.2",
-    "eslint": "^5.16.0",
-    "eslint-config-egg": "^7.4.1",
+    "@typescript-eslint/eslint-plugin": "^2.6.0",
+    "@typescript-eslint/parser": "^2.6.0",
+    "eslint": "^6.0.1",
+    "eslint-config-egg": "^6.0.0",
+    "tslib": "^1.9.0",
+    "typescript": "^3.5.2",
     "ava": "^2.1.0",
     "nyc": "^14.1.1",
     "rewire": "^4.0.1"

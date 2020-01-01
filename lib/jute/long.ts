@@ -3,22 +3,19 @@
  *
  * Copyright (c) 2019 Souche.com, all rights reserved.
  */
-'use strict';
 
-const Exception = require('../Exception');
+import Exception from '../Exception';
 
-const type = require('./basic/type');
+import type from './basic/type';
 
 /**
  * Long is represented by a buffer of 8 bytes in big endian since
  * Javascript does not support native 64 integer.
  */
-module.exports = class long extends type {
-  /**
-   *
-   * @param {long|Buffer} value
-   */
-  constructor(value = Buffer.alloc(8)) {
+export default class long extends type {
+  private value: Buffer;
+
+  constructor(value: long | Buffer = Buffer.alloc(8)) {
     super();
 
     this.setValue(value);
@@ -28,12 +25,7 @@ module.exports = class long extends type {
     return 8;
   }
 
-  /**
-   *
-   * @param {Buffer} buffer
-   * @param {number} offset
-   */
-  serialize(buffer, offset) {
+  serialize(buffer: Buffer, offset: number) {
     const bytesWritten = 8;
 
     if (Buffer.isBuffer(this.value)) {
@@ -45,23 +37,14 @@ module.exports = class long extends type {
     return bytesWritten;
   }
 
-  /**
-   *
-   * @param {Buffer} buffer
-   * @param {number} offset
-   */
-  deserialize(buffer, offset) {
+  deserialize(buffer: Buffer, offset: number) {
     this.value = Buffer.alloc(8);
     buffer.copy(this.value, 0, offset, offset + 8);
 
     return 8;
   }
 
-  /**
-   *
-   * @param {long|Buffer} value
-   */
-  setValue(value = Buffer.alloc(8)) {
+  setValue(value: long | Buffer = Buffer.alloc(8)) {
     this.value = value instanceof type ? value.valueOf() : value;
 
     if (!Buffer.isBuffer(this.value)) throw new Exception.Type('buffer', value);
@@ -71,11 +54,8 @@ module.exports = class long extends type {
     this.value.fill(0);
   }
 
-  /**
-   * @return {Buffer}
-   */
   valueOf() {
     return this.value;
   }
 
-};
+}

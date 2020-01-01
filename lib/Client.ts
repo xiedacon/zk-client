@@ -3,81 +3,107 @@
  *
  * Copyright (c) 2019 Souche.com, all rights reserved.
  */
-'use strict';
 
-const events = require('events');
+import * as events from 'events';
 
-const {
+import {
   CreateMode,
   OpCode,
   Xid,
   ExceptionCode,
   ConnectionEvent,
   Ids,
-} = require('./constants');
-const utils = require('./utils');
-const Transaction = require('./Transaction');
-const Exception = require('./Exception');
-const Shell = require('./Shell');
+} from './constants';
+import * as utils from './utils';
+import Transaction from './Transaction';
+import Exception from './Exception';
+import Shell from './Shell';
 
-const PacketManager = require('./PacketManager');
-const ConnectionManager = require('./ConnectionManager');
-const WatcherManager = require('./WatcherManager');
+import PacketManager from './PacketManager';
+import ConnectionManager from './ConnectionManager';
+import WatcherManager from './WatcherManager';
 
 const isProd = process.env.NODE_ENV && [ 'dev', 'develop', 'development', 'DEV', 'DEVELOP', 'DEVELOPMENT' ].indexOf(process.env.NODE_ENV) < 0;
 
-/**
- * @typedef {object} Options
- * @property {Array<{ scheme: string, auth: string|Buffer }>=} authInfo scheme:auth information
- * @property {string=} configNode
- * @property {number=} connectTimeout socket connect timeout
- * @property {number=} reconnectInterval Time to wait after try all server failed
- * @property {number=} retries Times to retry send packet to server
- * @property {number=} retryInterval Time to wait before retry send
- * @property {boolean=} showFriendlyErrorStack Show friendly error stack
- * @property {{error: Function, info: Function, warn: Function, debug: Function}=} logger
- * @property {typeof PacketManager=} PacketManager
- * @property {typeof WatcherManager=} WatcherManager
- */
-module.exports = class Client extends events.EventEmitter {
+export interface Logger {
+  error: Function;
+  info: Function;
+  warn: Function;
+  debug: Function;
+}
+
+export interface Options {
   /**
-   *
-   * @param {string|Array<string>} connectionString
-   * @param {Options=} options
+   * scheme:auth information
    */
-  constructor(connectionString, options = {}) {
+  authInfo: Array<{ scheme: string; auth: string | Buffer }>;
+  configNode: string;
+  /**
+   * socket connect timeout
+   */
+  connectTimeout: number;
+  /**
+   * Time to wait after try all server failed
+   */
+  reconnectInterval: number;
+  /**
+   * Times to retry send packet to server
+   */
+  retries: number;
+  /**
+   * Time to wait before retry send
+   */
+  retryInterval: number;
+  /**
+   * Show friendly error stack
+   */
+  showFriendlyErrorStack: boolean;
+  logger: Logger;
+  PacketManager: typeof PacketManager;
+  WatcherManager: typeof WatcherManager;
+}
+
+export type Watcher = (event: { type: number; state: number; path: string }) => any;
+
+export default class Client extends events.EventEmitter {
+  connectionString: string;
+  options: Options;
+  credentials = [] as Array<{ scheme: string; auth: Buffer }>;
+
+  logger: Logger;
+  shell: Shell;
+  packetManager: PacketManager;
+  connectionManager: ConnectionManager;
+  watcherManager: WatcherManager;
+
+  constructor(connectionString: string | Array<string>, options: Partial<Options> = {}) {
     super();
 
     if (Array.isArray(connectionString)) connectionString = connectionString.join(',');
     if (typeof connectionString !== 'string') throw new Exception.Normal('connectionString must be a string or Array<string>');
 
     this.connectionString = connectionString;
-    /** @type {Options} */
     this.options = Object.assign({}, this.default, options);
 
     // Disable on production
     this.options.showFriendlyErrorStack = isProd ? false : this.options.showFriendlyErrorStack;
 
     // scheme:auth pairs
-    const credentials = this.credentials = [];
     for (let { scheme, auth } of this.options.authInfo) {
       if (typeof auth === 'string') auth = Buffer.from(auth);
       if (typeof scheme !== 'string') throw new Exception.Normal('authInfo[i].scheme must be a string');
       if (!Buffer.isBuffer(auth)) throw new Exception.Normal('authInfo[i].auth must be a string or Buffer');
 
-      credentials.push({ scheme, auth });
+      this.credentials.push({ scheme, auth });
     }
 
     this.logger = this.options.logger;
     this.shell = new Shell(this);
 
-    /** @type {PacketManager} */
     this.packetManager = this.options.PacketManager instanceof PacketManager
       ? new this.options.PacketManager(this)
       : new PacketManager(this);
-    /** @type {ConnectionManager} */
     this.connectionManager = new ConnectionManager(this);
-    /** @type {WatcherManager} */
     this.watcherManager = this.options.WatcherManager instanceof WatcherManager
       ? new this.options.WatcherManager(this)
       : new WatcherManager(this);
@@ -127,7 +153,7 @@ module.exports = class Client extends events.EventEmitter {
         });
 
         // Send inner-request without queue
-        this.connectionManager.socket.write(packet.request.toBuffer());
+        if (this.connectionManager.socket) this.connectionManager.socket.write(packet.request.toBuffer());
 
         this.packetManager.recyclePacket(packet);
       }
@@ -176,6 +202,8 @@ module.exports = class Client extends events.EventEmitter {
    * their parents) will be triggered.
    */
   async close() {
+    this.removeAllListeners();
+
     await this.packetManager.close();
     await this.connectionManager.close();
     await this.watcherManager.close();
@@ -232,12 +260,12 @@ module.exports = class Client extends events.EventEmitter {
    * The maximum allowable size of the data array is 1 MB (1,048,576 bytes).
    * Arrays larger than this will cause a KeeperExecption to be thrown.
    *
-   * @param {string} path the path for the node
-   * @param {string|Buffer=} data the initial data for the node
-   * @param {Array<Jute.data.ACL>=} acl the acl for the node
-   * @param {number=} flags specifying whether the node to be created is ephemeral and/or sequential
+   * @param path the path for the node
+   * @param data the initial data for the node
+   * @param acl the acl for the node
+   * @param flags specifying whether the node to be created is ephemeral and/or sequential
    */
-  async create(path, data, acl = Ids.OPEN_ACL_UNSAFE, flags = CreateMode.PERSISTENT) {
+  async create(path: string, data?: string | Buffer, acl = Ids.OPEN_ACL_UNSAFE, flags = CreateMode.PERSISTENT) {
     if (typeof path !== 'string') throw new Exception.Normal('path must be a string');
     path = utils.normalizePath(path);
 
@@ -300,39 +328,32 @@ module.exports = class Client extends events.EventEmitter {
    * The maximum allowable size of the data array is 1 MB (1,048,576 bytes).
    * Arrays larger than this will cause a KeeperExecption to be thrown.
    *
-   * @param {string} path the path for the node
-   * @param {string|Buffer=} data the initial data for the node
-   * @param {Array<Jute.data.ACL>=} acl the acl for the node
-   * @param {number=} flags specifying whether the node to be created is ephemeral and/or sequential
-   * @param {Buffer=} ttl specifying a TTL when mode is CreateMode.PERSISTENT_WITH_TTL or CreateMode.PERSISTENT_SEQUENTIAL_WITH_TTL
+   * @param path the path for the node
+   * @param data the initial data for the node
+   * @param acl the acl for the node
+   * @param flags specifying whether the node to be created is ephemeral and/or sequential
+   * @param ttl specifying a TTL when mode is CreateMode.PERSISTENT_WITH_TTL or CreateMode.PERSISTENT_SEQUENTIAL_WITH_TTL
    */
-  async create2(path, data, acl = Ids.OPEN_ACL_UNSAFE, flags = CreateMode.PERSISTENT, ttl) {
+  async create2(path: string, data?: string | Buffer, acl = Ids.OPEN_ACL_UNSAFE, flags = CreateMode.PERSISTENT, ttl?: Buffer) {
     if (typeof path !== 'string') throw new Exception.Normal('path must be a string');
     path = utils.normalizePath(path);
 
     data = data ? Buffer.isBuffer(data) ? data : Buffer.from(data) : undefined;
 
-    let packet;
-    if (flags === CreateMode.PERSISTENT_WITH_TTL || flags === CreateMode.PERSISTENT_SEQUENTIAL_WITH_TTL) {
-      packet = this.packetManager.createTTL;
-      packet.request.payload.setValue({
-        path,
-        acl,
-        flags,
-        data,
-        ttl,
-      });
-    } else {
-      packet = this.packetManager.create2;
-      packet.request.header.type = flags === CreateMode.CONTAINER ? OpCode.createContainer : OpCode.create2;
-      packet.request.payload.setValue({
-        path,
-        acl,
-        flags,
-        data,
-      });
-    }
+    const packet = flags === CreateMode.PERSISTENT_WITH_TTL || flags === CreateMode.PERSISTENT_SEQUENTIAL_WITH_TTL
+      ? this.packetManager.createTTL
+      : this.packetManager.create2;
 
+    packet.request.payload.setValue({
+      path,
+      acl,
+      flags,
+      data,
+      ttl,
+    });
+
+    // eslint-disable-next-line @typescript-eslint/ban-ts-ignore
+    // @ts-ignore
     await this.connectionManager.send(packet);
     const res = packet.response.payload.valueOf();
     this.packetManager.recyclePacket(packet);
@@ -358,10 +379,10 @@ module.exports = class Client extends events.EventEmitter {
    * of the given path left by exists API calls, and the watches on the parent
    * node left by getChildren API calls.
    *
-   * @param {string} path the path of the node to be deleted
-   * @param {number=} version the expected node version
+   * @param path the path of the node to be deleted
+   * @param version the expected node version
    */
-  async delete(path, version = -1) {
+  async delete(path: string, version = -1) {
     if (typeof path !== 'string') throw new Exception.Normal('path must be a string');
     path = utils.normalizePath(path);
 
@@ -391,15 +412,15 @@ module.exports = class Client extends events.EventEmitter {
    * The maximum allowable size of the data array is 1 MB (1,048,576 bytes).
    * Arrays larger than this will cause a KeeperException to be thrown.
    *
-   * @param {string} path the path of the node
-   * @param {string|Buffer} data the data to set
-   * @param {number=} version the expected matching version
+   * @param path the path of the node
+   * @param data the data to set
+   * @param version the expected matching version
    */
-  async setData(path, data, version = -1) {
+  async setData(path: string, data: string | Buffer, version = -1) {
     if (typeof path !== 'string') throw new Exception.Normal('path must be a string');
     path = utils.normalizePath(path);
 
-    data = data ? Buffer.isBuffer(data) ? data : Buffer.from(data) : undefined;
+    data = data ? Buffer.isBuffer(data) ? data : Buffer.from(data) : Buffer.alloc(0);
 
     const packet = this.packetManager.setData;
     packet.request.payload.setValue({
@@ -427,10 +448,10 @@ module.exports = class Client extends events.EventEmitter {
    * A KeeperException with error code KeeperException.NoNode will be thrown
    * if no node with the given path exists.
    *
-   * @param {string} path the node path
-   * @param {(event: { type: number, state: number, path: string }) => any=} watcher explicit watcher
+   * @param path the node path
+   * @param watcher explicit watcher
    */
-  async getData(path, watcher) {
+  async getData(path: string, watcher?: Watcher) {
     if (typeof path !== 'string') throw new Exception.Normal('path must be a string');
     path = utils.normalizePath(path);
 
@@ -460,11 +481,11 @@ module.exports = class Client extends events.EventEmitter {
    * A KeeperException with error code KeeperException.BadVersion will be
    * thrown if the given aclVersion does not match the node's aclVersion.
    *
-   * @param {string} path the given path for the node
-   * @param {Array<Jute.data.ACL>} acl the given acl for the node
-   * @param {number=} version the given acl version of the node
+   * @param path the given path for the node
+   * @param acl the given acl for the node
+   * @param version the given acl version of the node
    */
-  async setACL(path, acl, version = -1) {
+  async setACL(path: string, acl: Array<Jute.data.ACL>, version = -1) {
     if (typeof path !== 'string') throw new Exception.Normal('path must be a string');
     path = utils.normalizePath(path);
 
@@ -485,9 +506,9 @@ module.exports = class Client extends events.EventEmitter {
   /**
    * Retrieve the ACL list and the stat of the node of the given path.
    *
-   * @param {string} path The node path.
+   * @param path The node path.
    */
-  async getACL(path) {
+  async getACL(path: string) {
     if (typeof path !== 'string') throw new Exception.Normal('path must be a string');
     path = utils.normalizePath(path);
 
@@ -512,10 +533,10 @@ module.exports = class Client extends events.EventEmitter {
    * triggered by a successful operation that creates/delete the node or sets
    * the data on the node.
    *
-   * @param {string} path the node path
-   * @param {(event: { type: number, state: number, path: string }) => any=} watcher explicit watcher
+   * @param path the node path
+   * @param watcher explicit watcher
    */
-  async exists(path, watcher) {
+  async exists(path: string, watcher?: Watcher) {
     if (typeof path !== 'string') throw new Exception.Normal('path must be a string');
     path = utils.normalizePath(path);
 
@@ -556,10 +577,10 @@ module.exports = class Client extends events.EventEmitter {
    * A KeeperException with error code KeeperException.NoNode will be thrown
    * if no node with the given path exists.
    *
-   * @param {string} path the node path
-   * @param {(event: { type: number, state: number, path: string }) => any=} watcher explicit watcher
+   * @param path the node path
+   * @param watcher explicit watcher
    */
-  async getChildren(path, watcher) {
+  async getChildren(path: string, watcher?: Watcher) {
     if (typeof path !== 'string') throw new Exception.Normal('path must be a string');
     path = utils.normalizePath(path);
 
@@ -592,10 +613,10 @@ module.exports = class Client extends events.EventEmitter {
    * A KeeperException with error code KeeperException.NoNode will be thrown
    * if no node with the given path exists.
    *
-   * @param {string} path the node path
-   * @param {(event: { type: number, state: number, path: string }) => any=} watcher explicit watcher
+   * @param path the node path
+   * @param watcher explicit watcher
    */
-  async getChildren2(path, watcher) {
+  async getChildren2(path: string, watcher?: Watcher) {
     if (typeof path !== 'string') throw new Exception.Normal('path must be a string');
     path = utils.normalizePath(path);
 
@@ -617,9 +638,9 @@ module.exports = class Client extends events.EventEmitter {
   /**
    * Gets all numbers of children nodes under a specific path
    *
-   * @param {string} path
+   * @param path
    */
-  async getAllChildrenNumber(path) {
+  async getAllChildrenNumber(path: string) {
     if (typeof path !== 'string') throw new Exception.Normal('path must be a string');
     path = utils.normalizePath(path);
 
@@ -640,7 +661,7 @@ module.exports = class Client extends events.EventEmitter {
    * created by this session.  If prefixPath is "/" then it returns all
    * ephemerals
    *
-   * @param {string} prefixPath
+   * @param prefixPath
    */
   async getEphemerals(prefixPath = '/') {
     if (typeof prefixPath !== 'string') throw new Exception.Normal('path must be a string');
@@ -661,9 +682,9 @@ module.exports = class Client extends events.EventEmitter {
   /**
    * Flushes channel between process and leader.
    *
-   * @param {string} path
+   * @param path
    */
-  async sync(path) {
+  async sync(path: string) {
     if (typeof path !== 'string') throw new Exception.Normal('path must be a string');
     path = utils.normalizePath(path);
 
@@ -707,11 +728,11 @@ module.exports = class Client extends events.EventEmitter {
    * Watcher shouldn't be null. A successful call guarantees that, the
    * removed watcher won't be triggered.
    *
-   * @param {string} path the path of the node
-   * @param {(event: { type: number, state: number, path: string }) => any} watcher explicit watcher
-   * @param {number} type the type of watcher to be removed
+   * @param path the path of the node
+   * @param watcher explicit watcher
+   * @param type the type of watcher to be removed
    */
-  async removeWatches(path, watcher, type) {
+  async removeWatches(path: string, watcher: Watcher, type: number) {
     if (typeof path !== 'string') throw new Exception.Normal('path must be a string');
     path = utils.normalizePath(path);
 
@@ -734,10 +755,10 @@ module.exports = class Client extends events.EventEmitter {
    * A successful call guarantees that, the removed watchers won't be
    * triggered.
    *
-   * @param {string} path the path of the node
-   * @param {number} type the type of watcher to be removed
+   * @param path the path of the node
+   * @param type the type of watcher to be removed
    */
-  async removeAllWatches(path, type) {
+  async removeAllWatches(path: string, type: number) {
     if (typeof path !== 'string') throw new Exception.Normal('path must be a string');
     path = utils.normalizePath(path);
 
@@ -764,10 +785,10 @@ module.exports = class Client extends events.EventEmitter {
    * A KeeperException with error code KeeperException.NoNode will be thrown
    * if the configuration node doesn't exists.
    *
-   * @param {(event: { type: number, state: number, path: string }) => any=} watcher explicit watcher
+   * @param watcher explicit watcher
    */
-  async getConfig(watcher) {
+  async getConfig(watcher?: Watcher) {
     return await this.getData(this.options.configNode, watcher);
   }
 
-};
+}

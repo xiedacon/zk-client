@@ -3,18 +3,15 @@
  *
  * Copyright (c) 2019 Souche.com, all rights reserved.
  */
-'use strict';
 
-const Exception = require('../Exception');
+import Exception from '../Exception';
 
-const type = require('./basic/type');
+import type from './basic/type';
 
-module.exports = class buffer extends type {
-  /**
-   *
-   * @param {buffer|Buffer} value
-   */
-  constructor(value = Buffer.alloc(0)) {
+export default class buffer extends type {
+  private value: Buffer;
+
+  constructor(value: buffer | Buffer = Buffer.alloc(0)) {
     super();
 
     this.setValue(value);
@@ -30,12 +27,7 @@ module.exports = class buffer extends type {
     return length;
   }
 
-  /**
-   *
-   * @param {Buffer} buffer
-   * @param {number} offset
-   */
-  serialize(buffer, offset) {
+  serialize(buffer: Buffer, offset: number) {
     let bytesWritten = 4;
 
     if (Buffer.isBuffer(this.value)) {
@@ -51,17 +43,12 @@ module.exports = class buffer extends type {
     return bytesWritten;
   }
 
-  /**
-   *
-   * @param {Buffer} buffer
-   * @param {number} offset
-   */
-  deserialize(buffer, offset) {
+  deserialize(buffer: Buffer, offset: number) {
     const length = buffer.readInt32BE(offset);
     let bytesRead = 4;
 
     if (length === -1) {
-      this.value = undefined;
+      this.value = Buffer.alloc(0);
     } else {
       buffer.copy(
         this.value = Buffer.alloc(length),
@@ -75,11 +62,7 @@ module.exports = class buffer extends type {
     return bytesRead;
   }
 
-  /**
-   *
-   * @param {buffer|Buffer} value
-   */
-  setValue(value = Buffer.alloc(0)) {
+  setValue(value: buffer | Buffer = Buffer.alloc(0)) {
     this.value = value instanceof type ? value.valueOf() : value;
 
     if (!Buffer.isBuffer(this.value)) throw new Exception.Type('buffer', value);
@@ -89,11 +72,8 @@ module.exports = class buffer extends type {
     this.value = Buffer.alloc(0);
   }
 
-  /**
-   * @return {Buffer}
-   */
   valueOf() {
     return this.value;
   }
 
-};
+}

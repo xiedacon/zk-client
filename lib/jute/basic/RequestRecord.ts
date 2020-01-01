@@ -3,42 +3,32 @@
  *
  * Copyright (c) 2019 Souche.com, all rights reserved.
  */
-'use strict';
 
-const ustring = require('../ustring');
-const vector = require('../vector');
-const object = require('./object');
+import type from './type';
+import ustring from '../ustring';
+import vector from '../vector';
+import _object from './object';
 
-const Exception = require('../../Exception');
+import Exception from '../../Exception';
 
-/**
- *
- * @param {string} chrootPath
- * @param {string} path
- */
-function prependChroot(chrootPath, path) {
+function prependChroot(chrootPath: string, path: string) {
   return chrootPath
     ? path === '/'
       ? chrootPath
-      : this.chrootPath + path
+      : chrootPath + path
     : path;
 }
 
-module.exports = class RequestRecord {
-  /**
-   *
-   * @param {Array<{ name: string, value: import('./type') }>} value
-   */
-  constructor(value) {
-    this.realType = new object(value);
+export default class RequestRecord {
+  private realType: _object;
+  private chrootPath: string;
+
+  constructor(value: Array<{ name: string; value: type }>) {
+    this.realType = new _object(value);
     this.chrootPath = '';
   }
 
-  /**
-   *
-   * @param {string} path
-   */
-  setChrootPath(path) {
+  setChrootPath(path: string) {
     if (typeof path !== 'string') throw new Exception.Type('string', path);
 
     this.chrootPath = path;
@@ -46,8 +36,6 @@ module.exports = class RequestRecord {
 
   /**
    * Serialize the content to a buffer.
-   *
-   * @return {Buffer}
    */
   serialize() {
     const attrs = this.realType.attrs;
@@ -76,7 +64,7 @@ module.exports = class RequestRecord {
     return buffer;
   }
 
-  setValue(value) {
+  setValue(value: any) {
     this.realType.setValue(value);
   }
 
@@ -85,4 +73,4 @@ module.exports = class RequestRecord {
     this.realType.clear();
   }
 
-};
+}

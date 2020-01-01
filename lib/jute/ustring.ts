@@ -3,18 +3,15 @@
  *
  * Copyright (c) 2019 Souche.com, all rights reserved.
  */
-'use strict';
 
-const Exception = require('../Exception');
+import Exception from '../Exception';
 
-const type = require('./basic/type');
+import type from './basic/type';
 
-module.exports = class ustring extends type {
-  /**
-   *
-   * @param {ustring|string} value
-   */
-  constructor(value = '') {
+export default class ustring extends type {
+  private value: string;
+
+  constructor(value: ustring | string = '') {
     super();
 
     this.setValue(value);
@@ -30,12 +27,7 @@ module.exports = class ustring extends type {
     return length;
   }
 
-  /**
-   *
-   * @param {Buffer} buffer
-   * @param {number} offset
-   */
-  serialize(buffer, offset) {
+  serialize(buffer: Buffer, offset: number) {
     let bytesWritten = 4;
 
     if (typeof this.value === 'string') {
@@ -51,17 +43,12 @@ module.exports = class ustring extends type {
     return bytesWritten;
   }
 
-  /**
-   *
-   * @param {Buffer} buffer
-   * @param {number} offset
-   */
-  deserialize(buffer, offset) {
+  deserialize(buffer: Buffer, offset: number) {
     const length = buffer.readInt32BE(offset);
     let bytesRead = 4;
 
     if (length === -1) {
-      this.value = undefined;
+      this.value = '';
     } else {
       this.value = buffer.toString(
         'utf8',
@@ -75,11 +62,7 @@ module.exports = class ustring extends type {
     return bytesRead;
   }
 
-  /**
-   *
-   * @param {ustring|string} value
-   */
-  setValue(value = '') {
+  setValue(value: ustring | string = '') {
     this.value = value instanceof type ? value.valueOf() : value;
 
     if (typeof this.value !== 'string') throw new Exception.Type('string', value);
@@ -89,11 +72,8 @@ module.exports = class ustring extends type {
     this.value = '';
   }
 
-  /**
-   * @return {string}
-   */
   valueOf() {
     return this.value;
   }
 
-};
+}

@@ -3,29 +3,27 @@
  *
  * Copyright (c) 2019 Souche.com, all rights reserved.
  */
-'use strict';
 
-const {
+import {
   CreateMode,
   Ids,
   ExceptionCode,
-} = require('./constants');
+} from './constants';
+import Client from './Client';
 
-module.exports = class Shell {
-  /**
-   *
-   * @param {import('./client')} client an instance of node-zookeeper-client.
-   */
-  constructor(client) {
+export default class Shell {
+  private client: Client;
+
+  constructor(client: Client) {
     this.client = client;
   }
 
   /**
    * touch
    *
-  * @param {string} path the path for the node
+   * @param path the path for the node
    */
-  async touch(path) {
+  async touch(path: string) {
     try {
       return await this.client.create(path, '', Ids.OPEN_ACL_UNSAFE, CreateMode.EPHEMERAL);
     } catch (err) {
@@ -36,9 +34,9 @@ module.exports = class Shell {
   /**
    * mkdir -p
    *
-  * @param {string} path the path for the node
+  * @param path the path for the node
    */
-  async mkdirp(path) {
+  async mkdirp(path: string) {
     let parent = '';
     const parts = path.split(/\//g);
 
@@ -51,10 +49,10 @@ module.exports = class Shell {
   /**
    * cp
    *
-   * @param {string} from
-   * @param {string} to
+   * @param from the path for the node
+   * @param to the path for the node
    */
-  async cp(from, to) {
+  async cp(from: string, to: string) {
     const { data, stat } = await this.client.getData(from);
     const { acl } = await this.client.getACL(from);
 
@@ -71,10 +69,10 @@ module.exports = class Shell {
   /**
    * cp -r
    *
-   * @param {string} from
-   * @param {string} to
+   * @param from the path for the node
+   * @param to the path for the node
    */
-  async cpr(from, to) {
+  async cpr(from: string, to: string) {
     await this.cp(from, to);
 
     for (const child of await this.ls(from)) {
@@ -85,10 +83,10 @@ module.exports = class Shell {
   /**
    * mv
    *
-   * @param {string} from
-   * @param {string} to
+   * @param from
+   * @param to
    */
-  async mv(from, to) {
+  async mv(from: string, to: string) {
     await this.cpr(from, to);
     await this.rmrf(from);
   }
@@ -96,9 +94,9 @@ module.exports = class Shell {
   /**
    * ls
    *
-   * @param {string} path
+   * @param path the path for the node
    */
-  async ls(path) {
+  async ls(path: string) {
     try {
       const { children } = await this.client.getChildren(path);
       return children;
@@ -112,11 +110,10 @@ module.exports = class Shell {
   /**
    * tree
    *
-   * @param {string} path
-   * @return {Promise<Array<string>>}
+   * @param path the path for the node
    */
-  async tree(path) {
-    const tree = [];
+  async tree(path: string) {
+    const tree = [] as Array<string>;
     for (const child of await this.ls(path)) {
       tree.push(
         child,
@@ -130,9 +127,9 @@ module.exports = class Shell {
   /**
    * cat
    *
-   * @param {string} path
+   * @param path the path for the node
    */
-  async cat(path) {
+  async cat(path: string) {
     try {
       const { data } = await this.client.getData(path);
       return data.toString();
@@ -146,9 +143,9 @@ module.exports = class Shell {
   /**
    * rm
    *
-   * @param {string} path the path for the node
+   * @param path the path for the node
    */
-  async rm(path) {
+  async rm(path: string) {
     try {
       await this.client.delete(path);
     } catch (err) {
@@ -159,9 +156,9 @@ module.exports = class Shell {
   /**
    * rm -rf
    *
-   * @param {string} path the path for the node
+   * @param path the path for the node
    */
-  async rmrf(path) {
+  async rmrf(path: string) {
     for (const child of await this.ls(path)) {
       await this.rmrf(`${path}/${child}`);
     }
@@ -169,4 +166,4 @@ module.exports = class Shell {
     await this.rm(path);
   }
 
-};
+}

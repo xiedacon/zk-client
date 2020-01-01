@@ -3,20 +3,16 @@
  *
  * Copyright (c) 2019 Souche.com, all rights reserved.
  */
-'use strict';
 
-const util = require('util');
-const path = require('path');
+import * as util from 'util';
+import * as path from 'path';
 
-exports.noop = function() {};
+export function noop() {}
 
-/**
- * @param {string} connectionString
- */
-exports.parseConnectionString = connectionString => {
+export function parseConnectionString(connectionString: string) {
   let chrootPath = '';
 
-  let index;
+  let index: number;
   if ((index = connectionString.indexOf('/')) > 0) {
     chrootPath = exports.normalizePath(connectionString.slice(index));
     chrootPath = chrootPath === '/' ? '' : chrootPath;
@@ -24,7 +20,7 @@ exports.parseConnectionString = connectionString => {
     connectionString = connectionString.slice(0, index);
   }
 
-  const servers = [];
+  const servers = [] as Array<{ host: string; port: number }>;
   for (const str of connectionString.split(',')) {
     const parts = str.split(':');
 
@@ -32,35 +28,24 @@ exports.parseConnectionString = connectionString => {
   }
 
   return { chrootPath, servers };
-};
+}
 
-/**
- * @param {string} _path The path of a node.
- */
-exports.normalizePath = _path => {
-  return path.normalize('/' + _path);
-};
+export function normalizePath(_path: string) {
+  return path.normalize(`/${_path}`);
+}
 
-/**
- * @param {Error} err
- */
-exports.formatError = err => {
+export function formatError(err: Error) {
   const name = err.name;
   const message = err.message;
   const stack = err.stack || 'no_stack';
   const props = Object.keys(err).map(key => `${key}: ${util.inspect(err[key])}`).join('\n  ');
 
   return `${name}: ${message}\n${stack.slice(stack.indexOf('\n') + 1)}\n  ${props}`;
-};
+}
 
-/**
- * @param {Error} err
- * @param {string} friendlyStack
- * @param {string} filterPath
- */
-exports.optimizeErrorStack = (err, friendlyStack, filterPath) => {
+export function optimizeErrorStack(err: Error, friendlyStack: string, filterPath: string) {
   const stacks = friendlyStack.split('\n').slice(1);
-  err.stack = err.stack
+  err.stack = (err.stack || 'no_stack')
     .split('\n')
     .slice(0, 1)
     .concat(
@@ -69,4 +54,4 @@ exports.optimizeErrorStack = (err, friendlyStack, filterPath) => {
         .join('\n')
     )
     .join('\n');
-};
+}

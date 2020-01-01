@@ -3,40 +3,40 @@
  *
  * Copyright (c) 2019 Souche.com, all rights reserved.
  */
-'use strict';
 
-const events = require('events');
+import * as events from 'events';
 
-const Exception = require('./Exception');
-
-const {
+import Exception from './Exception';
+import {
   Xid,
   EventType,
   EventState,
   ConnectionEvent,
   WatcherType,
-} = require('./constants');
-const jute = require('./jute');
-const utils = require('./utils');
+} from './constants';
+import jute from './jute';
+import * as utils from './utils';
 
-module.exports = class WatcherManager extends events.EventEmitter {
-  /**
-   *
-   * @param {import('./client')} client
-   */
-  constructor(client) {
+import Client, { Watcher } from './Client';
+import PacketManager from './PacketManager';
+import ConnectionManager from './ConnectionManager';
+
+export default class WatcherManager extends events.EventEmitter {
+  public dataWatchers: { [key: string]: events.EventEmitter } = {};
+  public childWatchers: { [key: string]: events.EventEmitter } = {};
+  public existWatchers: { [key: string]: events.EventEmitter } = {};
+
+  private client: Client;
+  private packetManager: PacketManager;
+  private connectionManager: ConnectionManager;
+
+  constructor(client: Client) {
     super();
 
     this.client = client;
-    /** @type {{ [key: string]: events.EventEmitter }} */
-    this.dataWatchers = {};
-    /** @type {{ [key: string]: events.EventEmitter }} */
-    this.childWatchers = {};
-    /** @type {{ [key: string]: events.EventEmitter }} */
-    this.existWatchers = {};
   }
 
-  ready() {
+  async ready() {
     this.packetManager = this.client.packetManager;
     this.connectionManager = this.client.connectionManager;
 
@@ -52,19 +52,13 @@ module.exports = class WatcherManager extends events.EventEmitter {
       packet.request.setChrootPath(this.connectionManager.chrootPath);
 
       // Send inner-request without queue
-      this.connectionManager.socket.write(packet.request.toBuffer());
+      if (this.connectionManager.socket) this.connectionManager.socket.write(packet.request.toBuffer());
 
       this.packetManager.recyclePacket(packet);
     });
   }
 
-  /**
-   *
-   * @param {{ [key: string]: events.EventEmitter }} watchers
-   * @param {string} path
-   * @param {(event: { type: number, state: number, path: string }) => any} watcher
-   */
-  registerWatcher(watchers, path, watcher) {
+  registerWatcher(watchers: { [key: string]: events.EventEmitter }, path: string, watcher: Watcher) {
     if (typeof watcher !== 'function') throw new Error('watcher must be a valid function.');
     path = utils.normalizePath(path);
 
@@ -73,6 +67,7 @@ module.exports = class WatcherManager extends events.EventEmitter {
     watcherExists = watchers[path].listeners('notification').some(l => {
       // This is rather hacky since node.js wraps the listeners using an
       // internal function.
+      // eslint-disable-next-line @typescript-eslint/ban-ts-ignore
       // @ts-ignore
       return l === watcher || l.listener === watcher;
     });
@@ -82,39 +77,20 @@ module.exports = class WatcherManager extends events.EventEmitter {
     }
   }
 
-  /**
-   *
-   * @param {string} path
-   * @param {(event: { type: number, state: number, path: string }) => any} watcher
-   */
-  registerDataWatcher(path, watcher) {
+  registerDataWatcher(path: string, watcher: Watcher) {
     this.registerWatcher(this.dataWatchers, path, watcher);
   }
 
-  /**
-   *
-   * @param {string} path
-   * @param {(event: { type: number, state: number, path: string }) => any} watcher
-   */
-  registerChildWatcher(path, watcher) {
+  registerChildWatcher(path: string, watcher: Watcher) {
     this.registerWatcher(this.childWatchers, path, watcher);
   }
 
-  /**
-   *
-   * @param {string} path
-   * @param {(event: { type: number, state: number, path: string }) => any} watcher
-   */
-  registerExistWatcher(path, watcher) {
+  registerExistWatcher(path: string, watcher: Watcher) {
     this.registerWatcher(this.existWatchers, path, watcher);
   }
 
-  /**
-   *
-   * @param {{ [key: string]: events.EventEmitter }} watchers
-   */
-  getWatcherPaths(watchers) {
-    const result = [];
+  getWatcherPaths(watchers: { [key: string]: events.EventEmitter }) {
+    const result = [] as Array<string>;
 
     for (const path of Object.keys(watchers)) {
       if (watchers[path].listeners('notification').length > 0) {
@@ -137,13 +113,8 @@ module.exports = class WatcherManager extends events.EventEmitter {
     return this.getWatcherPaths(this.existWatchers);
   }
 
-  /**
-   *
-   * @param {string} eventType
-   * @param {Jute.proto.WatcherEvent} watcherEvent
-   */
-  emit(eventType, watcherEvent) {
-    const emitters = [];
+  emit(eventType: string, watcherEvent: Jute.proto.WatcherEvent) {
+    const emitters = [] as Array<events.EventEmitter>;
     const event = watcherEvent.valueOf();
 
     switch (event.type) {
@@ -188,7 +159,7 @@ module.exports = class WatcherManager extends events.EventEmitter {
         }
         break;
       default:
-        throw new Exception.Normal('Unknown event type: ' + event.type);
+        throw new Exception.Normal(`Unknown event type: ${event.type}`);
     }
 
     process.nextTick(() => {
@@ -200,7 +171,7 @@ module.exports = class WatcherManager extends events.EventEmitter {
     return true;
   }
 
-  close() {
+  async close() {
     // Emit close event for all watches
     this.emit('', new jute.proto.WatcherEvent({
       state: EventState.Closed,
@@ -225,13 +196,7 @@ module.exports = class WatcherManager extends events.EventEmitter {
     this.existWatchers = {};
   }
 
-  /**
-   *
-   * @param {string} path
-   * @param {number} type
-   * @param {(event: { type: number, state: number, path: string }) => any=} watcher
-   */
-  removeWatches(path, type, watcher) {
+  removeWatches(path: string, type: number, watcher?: Watcher) {
     switch (type) {
       case WatcherType.Children:
         if (this.childWatchers[path]) {
@@ -282,8 +247,8 @@ module.exports = class WatcherManager extends events.EventEmitter {
         }
         break;
       default:
-        throw new Exception.Normal('Unknown watcher type: ' + type);
+        throw new Exception.Normal(`Unknown watcher type: ${type}`);
     }
   }
 
-};
+}

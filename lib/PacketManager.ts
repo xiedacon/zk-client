@@ -3,58 +3,56 @@
  *
  * Copyright (c) 2019 Souche.com, all rights reserved.
  */
-'use strict';
 
-const {
+import {
   OpCode,
-} = require('./constants');
-const jute = require('./jute');
-const Packet = require('./Packet');
-const Request = require('./Request');
-const Response = require('./Response');
-const TransactionRequest = require('./TransactionRequest');
-const TransactionResponse = require('./TransactionResponse');
+} from './constants';
+import jute from './jute';
+import Packet from './Packet';
+import Request from './Request';
+import Response from './Response';
+import TransactionRequest from './TransactionRequest';
+import TransactionResponse from './TransactionResponse';
+import Client from './Client';
 
-module.exports = class PacketManager {
-  constructor(client) {
+export default class PacketManager {
+  private client: Client;
+
+  constructor(client: Client) {
     this.client = client;
   }
 
-  ready() {
-
+  async ready() {
+    return;
   }
 
-  /**
-   *
-   * @param {Packet<Request, Response>} packet
-   */
-  recyclePacket(packet) {
+  recyclePacket(packet: Packet<Request<any>, Response<any>>) {
     if (!packet) return;
 
-    packet.opCode = null;
+    packet.opCode = 0;
+    // eslint-disable-next-line @typescript-eslint/ban-ts-ignore
     // @ts-ignore
     packet.request && typeof packet.request.clear === 'function' && packet.request.clear(this);
+    // eslint-disable-next-line @typescript-eslint/ban-ts-ignore
     // @ts-ignore
     packet.response && typeof packet.response.clear === 'function' && packet.response.clear(this);
-    packet.callback = null;
+    packet.callback = undefined;
     packet.stack = '';
 
     // TODO: packet cache
   }
 
-  close() {
-
+  async close() {
+    return;
   }
 
-  clear() {
-
-  }
+  clear() {}
 
   // Inner op packet
   get connect() {
     return new Packet(
       NaN,
-      new Request(null, new jute.proto.ConnectRequest()),
+      new Request(NaN, new jute.proto.ConnectRequest()),
       new Response(new jute.proto.ConnectResponse())
     );
   }
@@ -63,7 +61,7 @@ module.exports = class PacketManager {
   get notification() {
     return new Packet(
       OpCode.notification,
-      new Request(OpCode.notification),
+      new Request(OpCode.notification, new jute.basic.EmptyRequestRecord()),
       new Response(new jute.proto.WatcherEvent())
     );
   }
@@ -80,7 +78,7 @@ module.exports = class PacketManager {
     return new Packet(
       OpCode.delete,
       new Request(OpCode.delete, new jute.proto.DeleteRequest()),
-      new Response()
+      new Response(new jute.basic.EmptyResponseRecord())
     );
   }
 
@@ -143,8 +141,8 @@ module.exports = class PacketManager {
   get ping() {
     return new Packet(
       OpCode.ping,
-      new Request(OpCode.ping),
-      new Response()
+      new Request(OpCode.ping, new jute.basic.EmptyRequestRecord()),
+      new Response(new jute.basic.EmptyResponseRecord())
     );
   }
 
@@ -160,7 +158,7 @@ module.exports = class PacketManager {
     return new Packet(
       OpCode.check,
       new Request(OpCode.check, new jute.proto.CheckVersionRequest()),
-      new Response()
+      new Response(new jute.basic.EmptyResponseRecord())
     );
   }
 
@@ -183,8 +181,8 @@ module.exports = class PacketManager {
   get reconfig() {
     return new Packet(
       OpCode.reconfig,
-      new Request(OpCode.reconfig),
-      new Response()
+      new Request(OpCode.reconfig, new jute.basic.EmptyRequestRecord()),
+      new Response(new jute.basic.EmptyResponseRecord())
     );
   }
 
@@ -192,7 +190,7 @@ module.exports = class PacketManager {
     return new Packet(
       OpCode.checkWatches,
       new Request(OpCode.checkWatches, new jute.proto.CheckWatchesRequest()),
-      new Response()
+      new Response(new jute.basic.EmptyResponseRecord())
     );
   }
 
@@ -200,23 +198,23 @@ module.exports = class PacketManager {
     return new Packet(
       OpCode.removeWatches,
       new Request(OpCode.removeWatches, new jute.proto.RemoveWatchesRequest()),
-      new Response()
+      new Response(new jute.basic.EmptyResponseRecord())
     );
   }
 
   get createContainer() {
     return new Packet(
       OpCode.createContainer,
-      new Request(OpCode.createContainer),
-      new Response()
+      new Request(OpCode.createContainer, new jute.basic.EmptyRequestRecord()),
+      new Response(new jute.basic.EmptyResponseRecord())
     );
   }
 
   get deleteContainer() {
     return new Packet(
       OpCode.deleteContainer,
-      new Request(OpCode.deleteContainer),
-      new Response()
+      new Request(OpCode.deleteContainer, new jute.basic.EmptyRequestRecord()),
+      new Response(new jute.basic.EmptyResponseRecord())
     );
   }
 
@@ -232,7 +230,7 @@ module.exports = class PacketManager {
     return new Packet(
       OpCode.auth,
       new Request(OpCode.auth, new jute.proto.AuthPacket()),
-      new Response()
+      new Response(new jute.basic.EmptyResponseRecord())
     );
   }
 
@@ -240,15 +238,15 @@ module.exports = class PacketManager {
     return new Packet(
       OpCode.setWatces,
       new Request(OpCode.setWatces, new jute.proto.SetWatches()),
-      new Response()
+      new Response(new jute.basic.EmptyResponseRecord())
     );
   }
 
   get sasl() {
     return new Packet(
       OpCode.sasl,
-      new Request(OpCode.sasl),
-      new Response()
+      new Request(OpCode.sasl, new jute.basic.EmptyRequestRecord()),
+      new Response(new jute.basic.EmptyResponseRecord())
     );
   }
 
@@ -271,25 +269,25 @@ module.exports = class PacketManager {
   get createSession() {
     return new Packet(
       OpCode.createSession,
-      new Request(OpCode.createSession),
-      new Response()
+      new Request(OpCode.createSession, new jute.basic.EmptyRequestRecord()),
+      new Response(new jute.basic.EmptyResponseRecord())
     );
   }
 
   get closeSession() {
     return new Packet(
       OpCode.closeSession,
-      new Request(OpCode.closeSession),
-      new Response()
+      new Request(OpCode.closeSession, new jute.basic.EmptyRequestRecord()),
+      new Response(new jute.basic.EmptyResponseRecord())
     );
   }
 
   get error() {
     return new Packet(
       OpCode.error,
-      new Request(OpCode.error),
+      new Request(OpCode.error, new jute.basic.EmptyRequestRecord()),
       new Response(new jute.proto.ErrorResponse())
     );
   }
 
-};
+}

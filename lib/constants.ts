@@ -3,9 +3,8 @@
  *
  * Copyright (c) 2019 Souche.com, all rights reserved.
  */
-'use strict';
 
-exports.CreateMode = {
+export const CreateMode = {
   PERSISTENT: 0,
   PERSISTENT_SEQUENTIAL: 2,
   EPHEMERAL: 1,
@@ -15,7 +14,7 @@ exports.CreateMode = {
   PERSISTENT_SEQUENTIAL_WITH_TTL: 6,
 };
 
-exports.OpCode = {
+export const OpCode = {
   notification: 0,
   create: 1,
   delete: 2,
@@ -47,7 +46,7 @@ exports.OpCode = {
   error: -1,
 };
 
-exports.Perms = {
+export const Perms = {
   READ: 1,
   WRITE: 2,
   CREATE: 4,
@@ -56,20 +55,20 @@ exports.Perms = {
   ALL: 31,
 };
 
-exports.Xid = {
+export const Xid = {
   notification: -1,
   ping: -2,
   authentication: -4,
   setWatches: -8,
 };
 
-exports.WatcherType = {
+export const WatcherType = {
   Children: 1,
   Data: 2,
   Any: 3,
 };
 
-exports.EventType = {
+export const EventType = {
   None: -1,
   NodeCreated: 1,
   NodeDeleted: 2,
@@ -79,7 +78,7 @@ exports.EventType = {
   ChildWatchRemoved: 6,
 };
 
-exports.EventState = {
+export const EventState = {
   Unknown: -1,
   Disconnected: 0,
   NoSyncConnected: 1,
@@ -91,7 +90,7 @@ exports.EventState = {
   Closed: 7,
 };
 
-exports.ExceptionCode = {
+export const ExceptionCode = {
   OK: 0,
   SYSTEM_ERROR: -1,
   RUNTIME_INCONSISTENCY: -2,
@@ -123,7 +122,7 @@ exports.ExceptionCode = {
   RECONFIG_DISABLED: -123,
 };
 
-exports.ConnectionEvent = {
+export const ConnectionEvent = {
   // state events
   connecting: 'connecting',
   reconnecting: 'reconnecting',
@@ -137,12 +136,12 @@ exports.ConnectionEvent = {
   serverUnavailable: 'serverUnavailable',
 };
 
-const jute = require('./jute');
+import jute from './jute';
 
 const ANYONE_ID_UNSAFE = new jute.data.Id({ id: 'anyone', scheme: 'world' });
 const AUTH_IDS = new jute.data.Id({ id: '', scheme: 'auth' });
 
-exports.Ids = {
+export const Ids = {
   ANYONE_ID_UNSAFE,
   AUTH_IDS,
   OPEN_ACL_UNSAFE: [ new jute.data.ACL({ id: ANYONE_ID_UNSAFE, perms: exports.Perms.ALL }) ],

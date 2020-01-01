@@ -3,49 +3,47 @@
  *
  * Copyright (c) 2019 Souche.com, all rights reserved.
  */
-'use strict';
 
 /**
  * Interface for all jute types
  */
-module.exports = class Type {
+export default class Type {
+  constructor(value?: any) {
+    return this;
+  }
 
   /**
    * Calculate and return the size of the buffer which is need to serialize this.
-   *
-   * @return {number}
    */
-  byteLength() {
+  byteLength(): number {
     throw new Error('method must be implemented');
   }
 
   /**
    * Serialize the content to a buffer.
    *
-   * @param {Buffer} buffer buffer
-   * @param {number} offset offset
-   * @return {number}
+   * @param buffer buffer
+   * @param offset offset
    */
-  serialize(buffer, offset) {
+  serialize(buffer: Buffer, offset: number): number {
     throw new Error('method must be implemented');
   }
 
   /**
    * De-serialize the content from a buffer.
    *
-   * @param {Buffer} buffer buffer
-   * @param {number} offset offset
-   * @return {number}
+   * @param buffer buffer
+   * @param offset offset
    */
-  deserialize(buffer, offset) {
+  deserialize(buffer: Buffer, offset: number): number {
     throw new Error('method must be implemented');
   }
 
   /**
    *
-   * @param {any} value
+   * @param value
    */
-  setValue(value) {
+  setValue(value: any) {
     throw new Error('method must be implemented');
   }
 
@@ -53,11 +51,8 @@ module.exports = class Type {
     throw new Error('method must be implemented');
   }
 
-  /**
-   * @return {any}
-   */
-  valueOf() {
+  valueOf(): any {
     throw new Error('method must be implemented');
   }
 
-};
+}

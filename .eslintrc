@@ -1,0 +1,40 @@
+{
+  "extends": "eslint-config-egg",
+  "rules": {
+    "valid-jsdoc": "off",
+  },
+
+  "overrides": [
+    {
+      "files": [
+        "**/*.ts"
+      ],
+      "parser": "@typescript-eslint/parser",
+      "parserOptions": {
+        "sourceType": "module",
+        "project": "./tsconfig.json"
+      },
+      "plugins": ["@typescript-eslint"],
+      "rules": {
+        "@typescript-eslint/ban-types": "error",
+        "@typescript-eslint/ban-ts-ignore": "error",
+        "@typescript-eslint/member-delimiter-style": "error",
+        "@typescript-eslint/no-inferrable-types": ["error", { "ignoreParameters": false, "ignoreProperties": false }],
+        "@typescript-eslint/no-non-null-assertion": "error",
+        "@typescript-eslint/no-this-alias": ["error", { "allowDestructuring": true }],
+        "no-unused-vars": "off",
+        "@typescript-eslint/no-unused-vars": ["error", { "vars": "all", "args": "none", "ignoreRestSiblings": true }],
+        "semi": "off",
+        "@typescript-eslint/semi": "error",
+        "@typescript-eslint/restrict-plus-operands": "error",
+
+        "@typescript-eslint/member-ordering": "error",
+        "@typescript-eslint/no-misused-new": "error",
+        "@typescript-eslint/consistent-type-assertions": "error",
+
+        // https://github.com/typescript-eslint/typescript-eslint/issues/662
+        "no-undef": "off"
+      }
+    }
+  ],
+}

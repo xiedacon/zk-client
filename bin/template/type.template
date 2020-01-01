@@ -2,20 +2,23 @@
  * This file created by ./bin/gen_types
  * Do not modify this file!!!!!!!!!
  */
-'use strict';
 
-${clazz.deps.map(dep => `const ${dep.name} = require('${dep.path}');`).join('\n')}
+${clazz.deps.map(dep => `import ${dep.name} from '${dep.path}';`).join('\n')}
 
-const ${clazz.parentClazz} = require('../basic/${clazz.parentClazz}');
+import ${clazz.parentClazz} from '../basic/${clazz.parentClazz}';
 
-module.exports = class ${clazz.name} extends ${clazz.parentClazz} {
-  /**
-   * @typedef {object} Value
-   * ${clazz.attrs.map(({ name, type }) => `@property {${type.realType.split(/\|/g).map(t => type.subType ? `${t}<${type.subType.jsType}>` : t).join('|')}=} ${name}`).join('\n   * ')}
-   *
-   * @param {Value} value
-   */
-  constructor(value = {}) {
+type ParamValue = {
+  ${clazz.attrs.map(({ name, type }) => `${name}?: ${type.realType.split(/\|/g).map(t => type.subType ? `${t}<${type.subType.jsType}>` : t).join(' | ')};`).join('\n  ')}
+};
+
+type Value = {
+  ${clazz.attrs.map(({ name, type }) => `${name}: ${type.realType.split(/\|/g).slice(0, 1).map(t => type.subType ? `${t}<${type.subType.jsType}>` : t).join(' | ')};`).join('\n  ')}
+};
+
+export default class ${clazz.name} extends ${clazz.parentClazz} {
+  private _value: Value;
+
+  constructor(value: ParamValue = {}) {
     const newValue = {
       ${clazz.attrs.map(({ name, type }) => `${name}: new ${type.name}(value.${name}${type.subType ? `, ${type.subType.name}` : ''}),`).join('\n      ')}
     };
@@ -35,11 +38,7 @@ module.exports = class ${clazz.name} extends ${clazz.parentClazz} {
     this._value.${name}.setValue(value);
   }`).join('\n\n  ')}
 
-  /**
-   *
-   * @param {Value} value
-   */
-  setValue(value = {}) {
+  setValue(value: ParamValue = {}) {
     super.setValue(value);
   }
 
@@ -49,4 +48,4 @@ module.exports = class ${clazz.name} extends ${clazz.parentClazz} {
     };
   }
 
-};
+}

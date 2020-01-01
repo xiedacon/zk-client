@@ -3,27 +3,38 @@
  *
  * Copyright (c) 2019 Souche.com, all rights reserved.
  */
-'use strict';
 
-const {
+import {
   CreateMode,
   Ids,
   OpCode,
   ExceptionCode,
-} = require('./constants');
-const jute = require('./jute');
-const utils = require('./utils');
+} from './constants';
+import jute from './jute';
+import * as utils from './utils';
 
-const Exception = require('./Exception');
+import Exception from './Exception';
 
-class Transaction {
+import Client from './Client';
+import PacketManager from './PacketManager';
+import ConnectionManager from './ConnectionManager';
+import Packet from './Packet';
+import TransactionRequest from './TransactionRequest';
+import TransactionResponse from './TransactionResponse';
+
+export default class Transaction {
+  private showFriendlyErrorStack: boolean;
+  private packetManager: PacketManager;
+  private connectionManager: ConnectionManager;
+  private packet: Packet<TransactionRequest, TransactionResponse>;
+
   /**
    * Transaction provides a builder interface that helps building an atomic set
    * of operations.
    *
-   * @param {import('./client')} client an instance of node-zookeeper-client.
+   * @param client an instance of node-zookeeper-client.
    */
-  constructor(client) {
+  constructor(client: Client) {
     this.showFriendlyErrorStack = client.options.showFriendlyErrorStack;
     this.packetManager = client.packetManager;
     this.connectionManager = client.connectionManager;
@@ -34,12 +45,12 @@ class Transaction {
   /**
    * Add a create operation with given path, data, acls and mode.
    *
-   * @param {string} path The znode path.
-   * @param {string|Buffer=} [data] The data buffer.
-   * @param {Array<Jute.data.ACL>=} acl An array of ACL object.
-   * @param {number=} flags The creation mode.
+   * @param path The znode path.
+   * @param data The data buffer.
+   * @param acl An array of ACL object.
+   * @param flags The creation mode.
    */
-  create(path, data, acl = Ids.OPEN_ACL_UNSAFE, flags = CreateMode.PERSISTENT) {
+  create(path: string, data?: string | Buffer, acl = Ids.OPEN_ACL_UNSAFE, flags = CreateMode.PERSISTENT) {
     if (typeof path !== 'string') throw new Error('path must be a string');
     path = utils.normalizePath(path);
 
@@ -59,10 +70,10 @@ class Transaction {
   /**
    * Add a check (existence) operation with given path and optional version.
    *
-   * @param {string} path The znode path.
-   * @param {number=} version The version of the znode.
+   * @param path The znode path.
+   * @param version The version of the znode.
    */
-  check(path, version = -1) {
+  check(path: string, version = -1) {
     if (typeof path !== 'string') throw new Error('path must be a string');
     path = utils.normalizePath(path);
 
@@ -78,11 +89,11 @@ class Transaction {
   /**
    * Add a set-data operation with the given path, data and optional version.
    *
-   * @param {string} path The znode path.
-   * @param {string|Buffer=} data The data buffer.
-   * @param {number=} version The version of the znode.
+   * @param path The znode path.
+   * @param data The data buffer.
+   * @param version The version of the znode.
    */
-  setData(path, data, version = -1) {
+  setData(path: string, data?: string | Buffer, version = -1) {
     if (typeof path !== 'string') throw new Error('path must be a string');
     path = utils.normalizePath(path);
 
@@ -101,10 +112,10 @@ class Transaction {
   /**
    * Add a delete operation with the given path and optional version.
    *
-   * @param {string} path The znode path.
-   * @param {number=} version The version of the znode.
+   * @param path The znode path.
+   * @param version The version of the znode.
    */
-  remove(path, version = -1) {
+  remove(path: string, version = -1) {
     if (typeof path !== 'string') throw new Error('path must be a string');
     path = utils.normalizePath(path);
 
@@ -121,9 +132,11 @@ class Transaction {
    * Execute the transaction atomically.
    */
   async commit() {
-    if (this.packet.request.payload.length > 0) await this.connectionManager.send(this.packet);
+    // eslint-disable-next-line @typescript-eslint/ban-ts-ignore
+    // @ts-ignore
+    if (this.packet.request.payloads.length > 0) await this.connectionManager.send(this.packet);
 
-    const result = [];
+    const result = [] as Array<{ header: { type: number; done: boolean; err: number }; payload: any }>;
     for (const { header, payload } of this.packet.response) {
       if (header.type === OpCode.error && header.err !== ExceptionCode.OK) throw new Exception.Protocol(header.err);
 
@@ -133,12 +146,12 @@ class Transaction {
       });
     }
 
+    // eslint-disable-next-line @typescript-eslint/ban-ts-ignore
+    // @ts-ignore
     this.packetManager.recyclePacket(this.packet);
-    this.packet = null;
+    this.packet = this.packetManager.multi;
 
     return result;
   }
 
 }
-
-module.exports = Transaction;

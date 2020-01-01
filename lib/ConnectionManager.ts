@@ -3,36 +3,74 @@
  *
  * Copyright (c) 2019 Souche.com, all rights reserved.
  */
-'use strict';
 
-const _ = require('lodash');
-const net = require('net');
-const events = require('events');
-const path = require('path');
+import * as _ from 'lodash';
+import * as net from 'net';
+import * as events from 'events';
+import * as path from 'path';
 
-const {
+import {
   Xid,
   OpCode,
   ExceptionCode,
   ConnectionEvent,
-} = require('./constants');
-const jute = require('./jute');
-const utils = require('./utils');
-const Packet = require('./Packet');
-const Exception = require('./Exception');
+} from './constants';
+import jute from './jute';
+import * as utils from './utils';
+import Packet from './Packet';
+import Exception from './Exception';
+
+import Client, { Logger } from './Client';
+import Request from './Request';
+import Response from './Response';
+import PacketManager from './PacketManager';
+import WatcherManager from './WatcherManager';
 
 /**
  * This class parse the connection string to build the ensemble server
  * list and chrootPath.
  */
-module.exports = class ConnectionManager extends events.EventEmitter {
+export default class ConnectionManager extends events.EventEmitter {
+  public xid = 0;
+  public zxid = Buffer.alloc(8);
+  public sessionId = Buffer.alloc(8);
+  public sessionPassword = Buffer.alloc(16);
+  public sessionTimeout = 30000;
+  public socket: net.Socket | null;
+  public chrootPath: string;
+
+  private client: Client;
+
+  private server: { host: string; port: number } | null;
+  private servers: Array<{ host: string; port: number }>;
+  private availableServers: Array<{ host: string; port: number }>;
+
+  private connectTimeout: number;
+  private reconnectInterval: number;
+  private retries: number;
+  private retryInterval: number;
+  private showFriendlyErrorStack: boolean;
+
+  private connectTimeoutHandler: NodeJS.Timeout | null;
+
+  private pendingBuffer: Buffer | null;
+  private packetQueue: Array<Packet<Request<any>, Response<any>>>;
+  private pendingQueue: Array<Packet<Request<any>, Response<any>>>;
+
+  private state: string | null;
+  private preState: string | null;
+
+  private logger: Logger;
+  private packetManager: PacketManager;
+  private watcherManager: WatcherManager;
+
   /**
    *
    * Parse the connect string and random the servers of the ensemble.
    *
-   * @param {import('./client')} client ZooKeeper server ensemble string.
+   * @param client ZooKeeper server ensemble string.
    */
-  constructor(client) {
+  constructor(client: Client) {
     super();
 
     const { chrootPath, servers } = utils.parseConnectionString(client.connectionString);
@@ -41,12 +79,9 @@ module.exports = class ConnectionManager extends events.EventEmitter {
     this.client = client;
 
     this.chrootPath = chrootPath;
-    /** @type {{ host: string, port: number }} */
     this.server = null;
     this.socket = null;
-    /** @type {Array<{ host: string, port: number }>} */
     this.servers = servers;
-    /** @type {Array<{ host: string, port: number }>} */
     this.availableServers = [];
 
     const options = client.options;
@@ -56,18 +91,14 @@ module.exports = class ConnectionManager extends events.EventEmitter {
     this.retryInterval = options.retryInterval;
     this.showFriendlyErrorStack = options.showFriendlyErrorStack;
 
-    this.xid = 0;
     // Last seen zxid.
-    this.zxid = Buffer.alloc(8);
     this.sessionId = Buffer.alloc(8);
     this.sessionPassword = Buffer.alloc(16);
     this.sessionTimeout = 30000;
     this.connectTimeoutHandler = null;
 
     this.pendingBuffer = null;
-    /** @type {Array<import('./Packet')<import('./Request'), import('./Response')>>} */
     this.packetQueue = [];
-    /** @type {Array<import('./Packet')<import('./Request'), import('./Response')>>} */
     this.pendingQueue = [];
 
     this.state = null;
@@ -89,7 +120,7 @@ module.exports = class ConnectionManager extends events.EventEmitter {
     }
   }
 
-  async testServer(server) {
+  async testServer(server: { host: string; port: number }) {
     await new Promise((resolve, reject) => {
       const socket = net.connect(server);
       const timeout = setTimeout(() => {
@@ -140,7 +171,7 @@ module.exports = class ConnectionManager extends events.EventEmitter {
     throw new Exception.Normal('No available server');
   }
 
-  setState(state, ...args) {
+  setState(state: string, ...args: Array<any>) {
     if (this.state !== state) {
       this.state = state;
       this.emit(state, ...args);
@@ -155,8 +186,7 @@ module.exports = class ConnectionManager extends events.EventEmitter {
       : this.setState(ConnectionEvent.connecting);
 
     try {
-      this.server = await this.getAvailableServer();
-      this.bindSocket(net.connect(this.server));
+      this.bindSocket(net.connect(this.server = await this.getAvailableServer()));
     } catch (err) {
       this.logger.error(`Some error happened, it will try reconnect after ${this.reconnectInterval}ms, error: ${utils.formatError(err)}`);
       this.emit(ConnectionEvent.error, err);
@@ -166,11 +196,7 @@ module.exports = class ConnectionManager extends events.EventEmitter {
     }
   }
 
-  /**
-   *
-   * @param {net.Socket} socket
-   */
-  bindSocket(socket) {
+  bindSocket(socket: net.Socket) {
     this.socket = socket;
     this.connectTimeoutHandler = setTimeout(() => {
       this.logger.warn(`Socket connect timeout: ${this.connectTimeout} ms, server: ${JSON.stringify(this.server)}`);
@@ -188,7 +214,8 @@ module.exports = class ConnectionManager extends events.EventEmitter {
   }
 
   onSocketConnect() {
-    clearTimeout(this.connectTimeoutHandler);
+    if (!this.socket) return;
+    if (this.connectTimeoutHandler) clearTimeout(this.connectTimeoutHandler);
 
     const packet = this.packetManager.connect;
     packet.request.payload.setValue({
@@ -202,11 +229,7 @@ module.exports = class ConnectionManager extends events.EventEmitter {
     this.socket.write(packet.request.toBuffer());
   }
 
-  /**
-   *
-   * @param {Buffer} buffer
-   */
-  getDataBuffer(buffer) {
+  getDataBuffer(buffer: Buffer) {
     if (this.pendingBuffer) {
       buffer = Buffer.concat([ this.pendingBuffer, buffer ]);
     }
@@ -214,7 +237,7 @@ module.exports = class ConnectionManager extends events.EventEmitter {
     // We need at least 4 bytes
     if (buffer.length < 4) {
       this.pendingBuffer = buffer;
-      buffer = null;
+      return null;
     }
 
     let offset = 0;
@@ -224,7 +247,7 @@ module.exports = class ConnectionManager extends events.EventEmitter {
     if (buffer.length < size + offset) {
       // More data are coming.
       this.pendingBuffer = buffer;
-      buffer = null;
+      return null;
     } else if (buffer.length === size + offset) {
       this.pendingBuffer = null;
       buffer = buffer.slice(offset, size + offset);
@@ -240,19 +263,17 @@ module.exports = class ConnectionManager extends events.EventEmitter {
     return buffer;
   }
 
-  /**
-   *
-   * @param {Buffer} buffer
-   */
-  onSocketData(buffer) {
-    buffer = this.getDataBuffer(buffer);
-    if (!buffer) return;
+  onSocketData(buffer: Buffer) {
+    if (!this.socket) return;
+
+    const dataBuffer = this.getDataBuffer(buffer);
+    if (!dataBuffer) return;
 
     if (this.state === ConnectionEvent.connecting || this.state === ConnectionEvent.reconnecting) {
 
       // Handle connect response.
       const packet = this.packetManager.connect;
-      packet.response.payload.deserialize(buffer);
+      packet.response.payload.deserialize(dataBuffer);
       const responseData = packet.response.payload.valueOf();
 
       if (responseData.timeOut <= 0) {
@@ -281,7 +302,7 @@ module.exports = class ConnectionManager extends events.EventEmitter {
       let offset = 0;
 
       const responseHeader = new jute.proto.ReplyHeader();
-      offset += responseHeader.deserialize(buffer, offset);
+      offset += responseHeader.deserialize(dataBuffer, offset);
       const responseHeaderData = responseHeader.valueOf();
 
       switch (responseHeaderData.xid) {
@@ -298,7 +319,7 @@ module.exports = class ConnectionManager extends events.EventEmitter {
           const event = this.packetManager.notification.response.payload;
           if (this.chrootPath) event.setChrootPath(this.chrootPath);
 
-          event.deserialize(buffer, offset);
+          event.deserialize(dataBuffer, offset);
           this.watcherManager.emit('', event);
           break;
         default:
@@ -315,7 +336,7 @@ module.exports = class ConnectionManager extends events.EventEmitter {
           // eslint-disable-next-line no-case-declarations
           const requestHeaderData = requestHeader.valueOf();
           // eslint-disable-next-line no-case-declarations
-          let error = null;
+          let error = null as Error | null;
 
           if (requestHeaderData.xid !== responseHeaderData.xid) {
             this.socket.destroy(new Exception.Unknow(`Xid out of order. Got xid: ${responseHeader.xid} with error code: ${responseHeader.err}, expected xid: ${pendingPacket.request.header.xid}.`));
@@ -327,21 +348,22 @@ module.exports = class ConnectionManager extends events.EventEmitter {
           }
 
           if (responseHeaderData.err === 0) {
-            pendingPacket.response.fromBuffer(buffer);
+            pendingPacket.response.fromBuffer(dataBuffer);
           } else {
             pendingPacket.response.header = responseHeader;
             error = new Exception.Protocol(responseHeaderData.err);
           }
 
-          process.nextTick(() => pendingPacket.callback(error, pendingPacket));
+          process.nextTick(() => pendingPacket.callback && pendingPacket.callback(error, pendingPacket));
       }
     }
   }
 
   onSocketDrain() {
+    if (!this.socket) return;
     if (this.state !== ConnectionEvent.connect && this.state !== ConnectionEvent.closing) return;
 
-    let packet;
+    let packet: Packet<Request<any>, Response<any>> | undefined;
     while ((packet = this.packetQueue.shift())) {
       packet.request.header.xid = this.xid++;
 
@@ -357,7 +379,7 @@ module.exports = class ConnectionManager extends events.EventEmitter {
   }
 
   onSocketClose() {
-    clearTimeout(this.connectTimeoutHandler);
+    if (this.connectTimeoutHandler) clearTimeout(this.connectTimeoutHandler);
 
     this.packetQueue = this.pendingQueue.concat(this.packetQueue);
     this.socket && this.socket.removeAllListeners();
@@ -376,8 +398,8 @@ module.exports = class ConnectionManager extends events.EventEmitter {
     }
   }
 
-  onSocketError(error) {
-    clearTimeout(this.connectTimeoutHandler);
+  onSocketError(error: Error) {
+    if (this.connectTimeoutHandler) clearTimeout(this.connectTimeoutHandler);
 
     if (error instanceof Exception && error.name === 'ProtocolError') {
       // Exit client while ProtocolError, eg: AUTH_FAILED
@@ -425,13 +447,7 @@ module.exports = class ConnectionManager extends events.EventEmitter {
     this.preState = null;
   }
 
-  /**
-   * @template {import('./Packet')<import('./Request'), import('./Response')>} Packet
-   *
-   * @param {Packet} packet
-   * @param {number} retries
-   */
-  async send(packet, retries = this.retries) {
+  async send<T1 extends Jute.basic.RequestRecord, T2 extends Jute.basic.ResponseRecord>(packet: Packet<Request<T1>, Response<T2>>, retries = this.retries) {
     if (!(packet instanceof Packet)) throw new Exception.Normal('request must be a valid instance of Request.');
     if (!this.writable) {
       throw new Exception.Normal('connection not writable');
@@ -447,10 +463,11 @@ module.exports = class ConnectionManager extends events.EventEmitter {
 
     if (this.showFriendlyErrorStack) Error.captureStackTrace(packet, ConnectionManager.prototype.send);
 
-    const p = new Promise((resolve, reject) => {
+    const p = new Promise<Packet<Request<T1>, Response<T2>>>((resolve, reject) => {
       packet.callback = (err, packet) => {
         if (err) {
           packet.stack && utils.optimizeErrorStack(err, packet.stack, path.resolve(__dirname, '..'));
+          // eslint-disable-next-line @typescript-eslint/ban-ts-ignore
           // @ts-ignore
           err.data = packet;
         }
@@ -470,12 +487,13 @@ module.exports = class ConnectionManager extends events.EventEmitter {
     return p;
   }
 
-  _send(packet) {
+  _send(packet: Packet<Request<any>, Response<any>>) {
     this.packetQueue.push(packet);
     if (this.socket) this.socket.emit('drain');
   }
 
-  setPingTimeout(timeout) {
+  setPingTimeout(timeout: number) {
+    if (!this.socket) return;
     this.socket.setTimeout(
       timeout,
       () => {
@@ -528,4 +546,4 @@ module.exports = class ConnectionManager extends events.EventEmitter {
     }
   }
 
-};
+}

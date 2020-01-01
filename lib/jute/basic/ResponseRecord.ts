@@ -3,39 +3,29 @@
  *
  * Copyright (c) 2019 Souche.com, all rights reserved.
  */
-'use strict';
 
-const ustring = require('../ustring');
-const object = require('./object');
+import type from './type';
+import ustring from '../ustring';
+import _object from './object';
 
-const Exception = require('../../Exception');
+import Exception from '../../Exception';
 
-/**
- *
- * @param {string} chrootPath
- * @param {string} path
- */
-function removeChroot(chrootPath, path) {
+function removeChroot(chrootPath: string, path: string) {
   return chrootPath
     ? (path.substring(chrootPath.length) || '/')
     : path;
 }
 
-class ResponseRecord {
-  /**
-   *
-   * @param {Array<{ name: string, value: import('./type') }>} value
-   */
-  constructor(value) {
-    this.realType = new object(value);
+export default class ResponseRecord {
+  private realType: _object;
+  private chrootPath: string;
+
+  constructor(value: Array<{ name: string; value: type }>) {
+    this.realType = new _object(value);
     this.chrootPath = '';
   }
 
-  /**
-   *
-   * @param {string} path
-   */
-  setChrootPath(path) {
+  setChrootPath(path: string) {
     if (typeof path !== 'string') throw new Exception.Type('string', path);
 
     this.chrootPath = path;
@@ -44,17 +34,16 @@ class ResponseRecord {
   /**
    * De-serialize the content from a buffer.
    *
-   * @param {Buffer} buffer A buffer object.
-   * @param {number=} offset The offset where the read starts.
-   * @return {number}
+   * @param buffer A buffer object.
+   * @param offset The offset where the read starts.
    */
-  deserialize(buffer, offset = 0) {
+  deserialize(buffer: Buffer, offset = 0) {
     if (!Buffer.isBuffer(buffer)) {
       throw new Error('buffer must an instance of Node.js Buffer class.');
     }
 
     if (offset < 0 || offset >= buffer.length) {
-      throw new Error('offset: ' + offset + ' is out of buffer range.');
+      throw new Error(`offset: ${offset} is out of buffer range.`);
     }
 
     const bytesRead = this.realType.deserialize(buffer, offset);
@@ -72,7 +61,7 @@ class ResponseRecord {
     return bytesRead;
   }
 
-  setValue(value) {
+  setValue(value: any) {
     this.realType.setValue(value);
   }
 
@@ -94,5 +83,3 @@ Object.defineProperty(ResponseRecord, Symbol.hasInstance, {
     return object instanceof MixinRecord;
   },
 });
-
-module.exports = ResponseRecord;
