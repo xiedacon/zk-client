@@ -21,7 +21,7 @@ export default class Request<Payload extends Jute.basic.RequestRecord> {
    */
   constructor(opCode: number, payload: Payload) {
     this.chrootPath = '';
-    this.header = Number.isNaN(opCode) ? new jute.proto.RequestHeader({ type: opCode }) : new jute.basic.EmptyRequestHeader();
+    this.header = Number.isNaN(opCode) ? new jute.basic.EmptyRequestHeader() : new jute.proto.RequestHeader({ type: opCode });
     this.payload = payload;
   }
 
