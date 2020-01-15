@@ -15,11 +15,13 @@
     "url": "https://github.com/alexguan/node-zookeeper-client"
   },
   "scripts": {
-    "test": "npm run lint -- --fix && npm run test-local",
-    "test-local": "ava test/**",
-    "test-cov": "nyc ava test/**",
+    "test": "npm run lint -- --fix && npm run test-before && npm run test-local && npm run test-after",
+    "test-before": "docker-compose up -d && npm run build",
+    "test-local": "ava test/** --serial",
+    "test-after": "docker-compose down && npm run clean",
+    "test-cov": "nyc ava test/* --serial",
+    "cov": "npm run test-before && npm run test-cov && npm run test-after && nyc report --reporter=html && rm -rf .nyc_output",
     "report": "nyc report --reporter=html",
-    "cov": "npm run test-cov && npm run report",
     "lint": "eslint .",
     "build": "tsc --build tsconfig.json",
     "clean": "tsc --build tsconfig.json --clean",
@@ -39,14 +41,25 @@
     }
   ],
   "devDependencies": {
+    "@istanbuljs/nyc-config-typescript": "^1.0.1",
     "@typescript-eslint/eslint-plugin": "^2.6.0",
     "@typescript-eslint/parser": "^2.6.0",
+    "ava": "^2.4.0",
     "eslint": "^6.0.1",
     "eslint-config-egg": "^6.0.0",
-    "tslib": "^1.9.0",
-    "typescript": "^3.5.2",
-    "ava": "^2.1.0",
     "nyc": "^14.1.1",
-    "rewire": "^4.0.1"
-  }
+    "rewire": "^4.0.1",
+    "ts-node": "^8.6.2",
+    "tslib": "^1.9.0",
+    "typescript": "^3.5.2"
+  },
+  "ava": {
+		"compileEnhancements": false,
+		"extensions": [
+			"ts"
+		],
+		"require": [
+			"ts-node/register"
+		]
+	}
 }

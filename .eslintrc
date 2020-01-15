@@ -7,7 +7,8 @@
   "overrides": [
     {
       "files": [
-        "**/*.ts"
+        "**/*.ts",
+        "test/*.test.ts"
       ],
       "parser": "@typescript-eslint/parser",
       "parserOptions": {
