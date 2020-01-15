@@ -4,6 +4,7 @@
  * Copyright (c) 2019 Souche.com, all rights reserved.
  */
 
+export * from './lib/constants';
 import jute from './lib/jute';
 
 import Client, { Options, Logger, Watcher } from './lib/Client';
@@ -22,7 +23,6 @@ import TransactionResponse from './lib/TransactionResponse';
 
 import Shell from './lib/Shell';
 
-export * from './lib/constants';
 export {
   jute,
 

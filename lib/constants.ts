@@ -4,6 +4,8 @@
  * Copyright (c) 2019 Souche.com, all rights reserved.
  */
 
+import jute from './jute';
+
 export const CreateMode = {
   PERSISTENT: 0,
   PERSISTENT_SEQUENTIAL: 2,
@@ -135,8 +137,6 @@ export const ConnectionEvent = {
   serverAvailable: 'serverAvailable',
   serverUnavailable: 'serverUnavailable',
 };
-
-import jute from './jute';
 
 const ANYONE_ID_UNSAFE = new jute.data.Id({ id: 'anyone', scheme: 'world' });
 const AUTH_IDS = new jute.data.Id({ id: '', scheme: 'auth' });
