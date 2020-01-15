@@ -2,5 +2,8 @@
   "extension": [
     ".ts",
     ".tsx"
+  ],
+  "exclude": [
+    "lib/jute/**"
   ]
 }
