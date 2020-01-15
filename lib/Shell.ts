@@ -80,7 +80,7 @@ export default class Shell {
     await this.cp(from, to);
 
     for (const child of await this.ls(from)) {
-      await this.cp(`${from}/${child}`, `${to}/${child}`);
+      await this.cpr(`${from}/${child}`, `${to}/${child}`);
     }
   }
 

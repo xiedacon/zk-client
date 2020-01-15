@@ -69,5 +69,3 @@ export default class TransactionResponse extends Response<Jute.basic.ResponseRec
     })();
   }
 }
-
-module.exports = TransactionResponse;
