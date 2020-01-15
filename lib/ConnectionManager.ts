@@ -274,12 +274,15 @@ export default class ConnectionManager extends events.EventEmitter {
       // Handle connect response.
       const packet = this.packetManager.connect;
       packet.response.payload.deserialize(dataBuffer);
+      const responseHeader = packet.response.header.valueOf();
       const responseData = packet.response.payload.valueOf();
 
       if (responseData.timeOut <= 0) {
         this.sessionId.fill(0);
         this.logger.info('Session timeout, it will reconnect');
       } else {
+        this.xid = responseHeader.xid;
+        this.pendingQueue = [];
         this.sessionId = responseData.sessionId;
         this.sessionPassword = responseData.passwd;
 
@@ -343,11 +346,11 @@ export default class ConnectionManager extends events.EventEmitter {
             return;
           }
 
-          if (responseHeaderData.zxid) {
+          if (responseHeaderData.zxid && responseHeaderData.err !== ExceptionCode.UNIMPLEMENTED) {
             this.zxid = responseHeaderData.zxid;
           }
 
-          if (responseHeaderData.err === 0) {
+          if (responseHeaderData.err === ExceptionCode.OK) {
             pendingPacket.response.fromBuffer(dataBuffer);
           } else {
             pendingPacket.response.header = responseHeader;
