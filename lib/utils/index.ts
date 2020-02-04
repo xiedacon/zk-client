@@ -7,21 +7,26 @@
 import * as util from 'util';
 import * as path from 'path';
 
+import Exception from '../Exception';
+
 export function noop() {}
 
 export function parseConnectionString(connectionString: string) {
   let chrootPath = '';
 
-  let index: number;
-  if ((index = connectionString.indexOf('/')) > 0) {
-    chrootPath = exports.normalizePath(connectionString.slice(index));
-    chrootPath = chrootPath === '/' ? '' : chrootPath;
-
-    connectionString = connectionString.slice(0, index);
-  }
-
   const servers = [] as Array<{ host: string; port: number }>;
-  for (const str of connectionString.split(',')) {
+  for (let str of connectionString.split(',')) {
+    let index: number;
+    if ((index = str.indexOf('/')) > 0) {
+      let itemChrootPath = exports.normalizePath(str.slice(index));
+      itemChrootPath = itemChrootPath === '/' ? '' : itemChrootPath;
+
+      if (chrootPath && chrootPath !== itemChrootPath) throw new Exception.Normal('all connections must use the same chrootPath');
+
+      chrootPath = itemChrootPath;
+      str = str.slice(0, index);
+    }
+
     const parts = str.split(':');
 
     servers.push({ host: parts[0], port: Number(parts[1]) || 2181 }); // Default Zookeeper client port.
