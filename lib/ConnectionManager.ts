@@ -456,12 +456,9 @@ export default class ConnectionManager extends events.EventEmitter {
       throw new Exception.Normal('connection not writable');
     }
 
-    if (this.chrootPath && packet.request.payload) {
-      packet.request.payload.setChrootPath(this.chrootPath);
-    }
-
-    if (this.chrootPath && packet.response.payload) {
-      packet.response.payload.setChrootPath(this.chrootPath);
+    if (this.chrootPath) {
+      packet.request.setChrootPath(this.chrootPath);
+      packet.response.setChrootPath(this.chrootPath);
     }
 
     if (this.showFriendlyErrorStack) Error.captureStackTrace(packet, ConnectionManager.prototype.send);
