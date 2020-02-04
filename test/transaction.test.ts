@@ -51,3 +51,43 @@ test.serial('it should work', async t => {
 
   t.pass();
 });
+
+test.serial('it should work with chrootPath', async t => {
+  const client1 = createClient(connectionString);
+  await client1.connect();
+  await client1.create('/sdktest');
+
+  const client2 = createClient(connectionString.split(',').map(s => `${s}/sdktest`).join(','));
+  await client2.connect();
+
+  await client2.transaction()
+    .create('/1')
+    .check('/1')
+    .setData('/1', 'test')
+    .create('/1/1')
+    .commit();
+
+  t.deepEqual(
+    (await client2.getData('/1')).data.toString('utf-8'),
+    'test'
+  );
+
+  t.deepEqual(
+    await client2.getChildren('/1'),
+    { children: [ '1' ] }
+  );
+
+  await client2.transaction()
+    .remove('/1/1')
+    .remove('/1')
+    .commit();
+
+  t.falsy(await client2.exists('/1'));
+
+  await client2.close();
+
+  await client1.delete('/sdktest');
+  await client1.close();
+
+  t.pass();
+});

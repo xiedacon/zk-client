@@ -40,6 +40,46 @@ test.serial('it should work', async t => {
   t.pass();
 });
 
+test.serial('it should work with chrootPath', async t => {
+  const client1 = createClient(connectionString);
+  await client1.connect();
+  await client1.create('/sdktest');
+
+  const client2 = createClient(connectionString.split(',').map(s => `${s}/sdktest`).join(','));
+  await client2.connect();
+
+  t.deepEqual(
+    await client2.create('/1', 'test'),
+    { path: '/1' }
+  );
+
+  t.truthy(await client2.exists('/1'));
+
+  await client2.delete('/1');
+  await client2.close();
+
+  await client1.delete('/sdktest');
+  await client1.close();
+
+  t.pass();
+});
+
+test.serial('it should work with auth', async t => {
+  const client = createClient(connectionString, {
+    authInfo: [
+      { auth: 'test:scheme', scheme: 'digest' },
+    ],
+  });
+
+  await client.connect();
+  await client.create('/sdktest');
+
+  await client.delete('/sdktest');
+  await client.close();
+
+  t.pass();
+});
+
 test.serial('it should work with EPHEMERAL node', async t => {
   const client = createClient(connectionString);
   await client.connect();

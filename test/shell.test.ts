@@ -85,3 +85,19 @@ test.serial('it should work', async t => {
 
   t.pass();
 });
+
+test.serial('it should cat with not exists node', async t => {
+  const client = createClient(connectionString);
+  await client.connect();
+
+  const shell = client.shell;
+
+  t.deepEqual(
+    await shell.cat('/sdktest/1/2/3/4/5/8'),
+    ''
+  );
+
+  await client.close();
+
+  t.pass();
+});
