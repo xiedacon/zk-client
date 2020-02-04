@@ -5,7 +5,6 @@
  */
 
 import type from './type';
-import ustring from '../ustring';
 import _object from './object';
 
 import Exception from '../../Exception';
@@ -49,13 +48,11 @@ export default class ResponseRecord {
     const bytesRead = this.realType.deserialize(buffer, offset);
 
     if (this.chrootPath) {
-      this.realType.attrs = this.realType.attrs.map(({ name, value }) => {
+      for (const { name, value } of this.realType.attrs) {
         if (name === 'path') {
-          value = new ustring(removeChroot(this.chrootPath, value.valueOf()));
+          value.setValue(removeChroot(this.chrootPath, value.valueOf()));
         }
-
-        return { name, value };
-      });
+      }
     }
 
     return bytesRead;
