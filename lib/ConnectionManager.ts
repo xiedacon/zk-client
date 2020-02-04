@@ -406,8 +406,8 @@ export default class ConnectionManager extends events.EventEmitter {
 
     if (error instanceof Exception && error.name === 'ProtocolError') {
       // Exit client while ProtocolError, eg: AUTH_FAILED
-      this.setState(ConnectionEvent.error, error);
       this.logger.error(`Client exited because of error: ${utils.formatError(error)}`);
+      this.setState(ConnectionEvent.error, error);
     } else {
       this.logger.error(`Some error happend, it will reconnect, error: ${utils.formatError(error)}`);
       this.emit(ConnectionEvent.error, error);

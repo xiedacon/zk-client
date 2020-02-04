@@ -271,7 +271,6 @@ export default class Client extends events.EventEmitter {
 
     data = data ? Buffer.isBuffer(data) ? data : Buffer.from(data) : undefined;
 
-
     const packet = this.packetManager.create;
     packet.request.header.type = flags === CreateMode.CONTAINER ? OpCode.createContainer : OpCode.create;
     packet.request.payload.setValue({

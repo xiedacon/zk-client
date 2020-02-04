@@ -46,6 +46,6 @@ export {
   Shell,
 };
 
-export function createClient(connectionString: string | Array<string>, options?: Options) {
+export function createClient(connectionString: string | Array<string>, options?: Partial<Options>) {
   return new Client(connectionString, options);
 }
