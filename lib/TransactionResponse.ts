@@ -36,7 +36,7 @@ export default class TransactionResponse extends Response<Jute.basic.ResponseRec
     bytesRead += this.header.deserialize(buffer, offset + bytesRead);
 
     for (let i = 0; i < this.payloads.length; i++) {
-      const record = this.payload[i];
+      const record = this.payloads[i];
 
       if (record) {
         if (this.chrootPath) {
@@ -46,7 +46,7 @@ export default class TransactionResponse extends Response<Jute.basic.ResponseRec
         bytesRead += record.deserialize(buffer, offset + bytesRead);
 
         if (record instanceof jute.proto.MultiHeader && record.type === OpCode.error) {
-          this.payload[i + 1] = new jute.proto.ErrorResponse();
+          this.payloads[i + 1] = new jute.proto.ErrorResponse();
         }
       }
     }
