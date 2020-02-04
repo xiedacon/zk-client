@@ -20,20 +20,10 @@ recordProtoToOpCode.set(jute.proto.SetDataRequest.prototype, OpCode.setData);
 recordProtoToOpCode.set(jute.proto.CheckVersionRequest.prototype, OpCode.check);
 
 function recordToOpCode(record: Jute.basic.RequestRecord) {
-  let opCode = recordProtoToOpCode.get(Object.getPrototypeOf(record));
+  const opCode = recordProtoToOpCode.get(Object.getPrototypeOf(record));
 
   if (opCode === undefined) {
-    if (record instanceof jute.proto.CreateRequest) {
-      opCode = OpCode.create;
-    } else if (record instanceof jute.proto.DeleteRequest) {
-      opCode = OpCode.delete;
-    } else if (record instanceof jute.proto.SetDataRequest) {
-      opCode = OpCode.setData;
-    } else if (record instanceof jute.proto.CheckVersionRequest) {
-      opCode = OpCode.check;
-    } else {
-      throw new Error(`Unsupport RequestRecord: ${_.get(Object.getPrototypeOf(record), [ 'constructor', 'name' ], util.inspect(record))}`);
-    }
+    throw new Error(`Unsupport RequestRecord: ${_.get(Object.getPrototypeOf(record), [ 'constructor', 'name' ], util.inspect(record))}`);
   }
 
   return opCode;
