@@ -4,6 +4,7 @@
     ".tsx"
   ],
   "exclude": [
-    "lib/jute/**"
+    "lib/jute/**",
+    "test/**"
   ]
 }

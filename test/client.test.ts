@@ -32,6 +32,27 @@ test.serial('it should work', async t => {
     { path: '/sdktest' }
   );
 
+  t.is(client.getSessionId().length, 8);
+  t.is(client.getSessionPassword().length, 16);
+  t.truthy(client.getSessionTimeout());
+
+  t.truthy(await client.exists('/sdktest'));
+
+  await client.delete('/sdktest');
+  await client.close();
+
+  t.pass();
+});
+
+test.serial('it should work with connectionStrings', async t => {
+  const client = createClient(connectionString.split(','));
+  await client.connect();
+
+  t.deepEqual(
+    await client.create('/sdktest', 'test'),
+    { path: '/sdktest' }
+  );
+
   t.truthy(await client.exists('/sdktest'));
 
   await client.delete('/sdktest');
