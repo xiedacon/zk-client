@@ -1,6 +1,6 @@
 # node-zookeeper-client
 
-A pure Javascript [ZooKeeper](http://zookeeper.apache.org) client module for
+A pure TypeScript [ZooKeeper](http://zookeeper.apache.org) client module for
 [Node.js](http://nodejs.org).
 
 - [node-zookeeper-client](#node-zookeeper-client)
@@ -9,6 +9,7 @@ A pure Javascript [ZooKeeper](http://zookeeper.apache.org) client module for
   - [API](#api)
     - [Client](#client)
       - [new Client(connectionString[, options])](#new-clientconnectionstring-options)
+      - [client.shell](#clientshell)
       - [client.getSessionId()](#clientgetsessionid)
       - [client.getSessionPassword()](#clientgetsessionpassword)
       - [client.getSessionTimeout()](#clientgetsessiontimeout)
@@ -40,6 +41,17 @@ A pure Javascript [ZooKeeper](http://zookeeper.apache.org) client module for
       - [t.setData(path, data[, version])](#tsetdatapath-data-version)
       - [t.remove(path, data[, version])](#tremovepath-data-version)
       - [t.commit()](#tcommit)
+    - [Shell](#shell)
+      - [shell.touch(path)](#shelltouchpath)
+      - [shell.mkdir(path)](#shellmkdirpath)
+      - [shell.cp(from, to)](#shellcpfrom-to)
+      - [shell.cpr(from, to)](#shellcprfrom-to)
+      - [shell.mv(from, to)](#shellmvfrom-to)
+      - [shell.ls(path)](#shelllspath)
+      - [shell.tree(path)](#shelltreepath)
+      - [shell.cat(path)](#shellcatpath)
+      - [shell.rm(path)](#shellrmpath)
+      - [shell.rmrf(path)](#shellrmrfpath)
     - [ZK.createClient(connectionString[, options])](#zkcreateclientconnectionstring-options)
     - [CreateMode](#createmode)
     - [OpCode](#opcode)
@@ -119,18 +131,22 @@ const client = ZK.createClient('127.0.0.1:2181');
 
 #### new Client(connectionString[, options])
 
-* connectionString ``string``
+* connectionString ``string`` | ``Array<string>``
 * options ``object``
-  * authInfo ``Array<{ scheme: string, auth: string|Buffer }>`` scheme:auth information
+  * authInfo ``Array<{ scheme: string, auth: string | Buffer }>`` scheme:auth information
   * configNode ``string`` default: /zookeeper/config
   * connectTimeout ``number`` socket connect timeout, default: 5000
   * reconnectInterval ``number`` Time to wait after try all server failed, default: 1000
   * retries ``number`` Times to retry send packet to server, default: 3
   * retryInterval ``number`` Time to wait before retry send, default: 0
   * showFriendlyErrorStack ``boolean`` Show friendly error stack, default: ``development ? true : false``
-  * logger ``{error: Function, info: Function, warn: Function, debug: Function}``
+  * logger ``{ error: Function, info: Function, warn: Function, debug: Function }``
   * PacketManager ``PacketManager``
   * WatcherManager ``WatcherManager``
+
+#### client.shell
+
+[See](#shell)
 
 #### client.getSessionId()
 
@@ -354,29 +370,93 @@ Add a delete operation with the given path and optional version.
 
 Execute the transaction atomically.
 
+### Shell
+
+A high level api to use zookeeper with shell commands.
+
+#### shell.touch(path)
+
+touch file.
+
+#### shell.mkdir(path)
+
+mkdir -p dir.
+
+#### shell.cp(from, to)
+
+cp file1 file2.
+
+#### shell.cpr(from, to)
+
+cp -r fileOrDir fileOrDir.
+
+#### shell.mv(from, to)
+
+mv fileOrDir fileOrDir.
+
+#### shell.ls(path)
+
+ls dir.
+
+#### shell.tree(path)
+
+tree dir.
+
+#### shell.cat(path)
+
+cat file.
+
+#### shell.rm(path)
+
+rm fileOrDir.
+
+#### shell.rmrf(path)
+
+rm -rf fileOrDir.
+
 ### ZK.createClient(connectionString[, options])
 
 [See](#new%20Client(connectionString%5B%2C%20options%5D))
 
 ### CreateMode
 
+[See](blob/lib/constants.ts)
+
 ### OpCode
+
+[See](blob/lib/constants.ts)
 
 ### Perms
 
+[See](blob/lib/constants.ts)
+
 ### Xid
+
+[See](blob/lib/constants.ts)
 
 ### WatcherType
 
+[See](blob/lib/constants.ts)
+
 ### EventType
+
+[See](blob/lib/constants.ts)
 
 ### EventState
 
+[See](blob/lib/constants.ts)
+
 ### ExceptionCode
+
+[See](blob/lib/constants.ts)
 
 ### ConnectionEvent
 
+[See](blob/lib/constants.ts)
+
 ### Ids
+
+[See](blob/lib/constants.ts)
 
 ## Jute
 

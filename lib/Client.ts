@@ -63,7 +63,20 @@ export interface Options {
   WatcherManager: typeof WatcherManager;
 }
 
-export type Watcher = (event: { type: number; state: number; path: string }) => any;
+export type Watcher = (event: {
+  /**
+   * event type
+   */
+  type: number;
+  /**
+   * event state
+   */
+  state: number;
+  /**
+   * node path
+   */
+  path: string;
+}) => any;
 
 export default class Client extends events.EventEmitter {
   connectionString: string;
