@@ -50,6 +50,7 @@ export namespace data {
 import _ConnectRequest from './proto/ConnectRequest';
 import _ConnectResponse from './proto/ConnectResponse';
 import _SetWatches from './proto/SetWatches';
+import _SetWatches2 from './proto/SetWatches2';
 import _RequestHeader from './proto/RequestHeader';
 import _MultiHeader from './proto/MultiHeader';
 import _AuthPacket from './proto/AuthPacket';
@@ -76,6 +77,7 @@ import _SyncResponse from './proto/SyncResponse';
 import _GetACLRequest from './proto/GetACLRequest';
 import _SetACLRequest from './proto/SetACLRequest';
 import _SetACLResponse from './proto/SetACLResponse';
+import _AddWatchRequest from './proto/AddWatchRequest';
 import _WatcherEvent from './proto/WatcherEvent';
 import _ErrorResponse from './proto/ErrorResponse';
 import _CreateResponse from './proto/CreateResponse';
@@ -96,6 +98,7 @@ export namespace proto {
   type ConnectRequest = _ConnectRequest;
   type ConnectResponse = _ConnectResponse;
   type SetWatches = _SetWatches;
+  type SetWatches2 = _SetWatches2;
   type RequestHeader = _RequestHeader;
   type MultiHeader = _MultiHeader;
   type AuthPacket = _AuthPacket;
@@ -122,6 +125,7 @@ export namespace proto {
   type GetACLRequest = _GetACLRequest;
   type SetACLRequest = _SetACLRequest;
   type SetACLResponse = _SetACLResponse;
+  type AddWatchRequest = _AddWatchRequest;
   type WatcherEvent = _WatcherEvent;
   type ErrorResponse = _ErrorResponse;
   type CreateResponse = _CreateResponse;

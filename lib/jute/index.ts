@@ -43,6 +43,7 @@ const data = {
 import ConnectRequest from './proto/ConnectRequest';
 import ConnectResponse from './proto/ConnectResponse';
 import SetWatches from './proto/SetWatches';
+import SetWatches2 from './proto/SetWatches2';
 import RequestHeader from './proto/RequestHeader';
 import MultiHeader from './proto/MultiHeader';
 import AuthPacket from './proto/AuthPacket';
@@ -69,6 +70,7 @@ import SyncResponse from './proto/SyncResponse';
 import GetACLRequest from './proto/GetACLRequest';
 import SetACLRequest from './proto/SetACLRequest';
 import SetACLResponse from './proto/SetACLResponse';
+import AddWatchRequest from './proto/AddWatchRequest';
 import WatcherEvent from './proto/WatcherEvent';
 import ErrorResponse from './proto/ErrorResponse';
 import CreateResponse from './proto/CreateResponse';
@@ -89,6 +91,7 @@ const proto = {
   ConnectRequest,
   ConnectResponse,
   SetWatches,
+  SetWatches2,
   RequestHeader,
   MultiHeader,
   AuthPacket,
@@ -115,6 +118,7 @@ const proto = {
   GetACLRequest,
   SetACLRequest,
   SetACLResponse,
+  AddWatchRequest,
   WatcherEvent,
   ErrorResponse,
   CreateResponse,

@@ -6,6 +6,9 @@
 
 import jute from './jute';
 
+/**
+ * org.apache.zookeeper.CreateMode
+ */
 export const CreateMode = {
   PERSISTENT: 0,
   PERSISTENT_SEQUENTIAL: 2,
@@ -16,6 +19,9 @@ export const CreateMode = {
   PERSISTENT_SEQUENTIAL_WITH_TTL: 6,
 };
 
+/**
+ * org.apache.zookeeper.ZooDefs.OpCode
+ */
 export const OpCode = {
   notification: 0,
   create: 1,
@@ -38,16 +44,22 @@ export const OpCode = {
   createContainer: 19,
   deleteContainer: 20,
   createTTL: 21,
+  multiRead: 22,
   auth: 100,
   setWatces: 101,
   sasl: 102,
   getEphemerals: 103,
   getAllChildrenNumber: 104,
+  setWatches2: 105,
+  addWatch: 106,
   createSession: -10,
   closeSession: -11,
   error: -1,
 };
 
+/**
+ * org.apache.zookeeper.ZooDefs.Perms
+ */
 export const Perms = {
   READ: 1,
   WRITE: 2,
@@ -57,6 +69,9 @@ export const Perms = {
   ALL: 31,
 };
 
+/**
+ * org.apache.zookeeper.ClientCnxn
+ */
 export const Xid = {
   notification: -1,
   ping: -2,
@@ -64,12 +79,18 @@ export const Xid = {
   setWatches: -8,
 };
 
+/**
+ * org.apache.zookeeper.Watcher.WatcherType
+ */
 export const WatcherType = {
   Children: 1,
   Data: 2,
   Any: 3,
 };
 
+/**
+ * org.apache.zookeeper.Watcher.Event.EventType
+ */
 export const EventType = {
   None: -1,
   NodeCreated: 1,
@@ -78,8 +99,12 @@ export const EventType = {
   NodeChildrenChanged: 4,
   DataWatchRemoved: 5,
   ChildWatchRemoved: 6,
+  PersistentWatchRemoved: 7,
 };
 
+/**
+ * org.apache.zookeeper.Watcher.Event.KeeperState
+ */
 export const EventState = {
   Unknown: -1,
   Disconnected: 0,
@@ -92,6 +117,9 @@ export const EventState = {
   Closed: 7,
 };
 
+/**
+ * org.apache.zookeeper.KeeperException.Code
+ */
 export const ExceptionCode = {
   OK: 0,
   SYSTEM_ERROR: -1,
@@ -122,6 +150,7 @@ export const ExceptionCode = {
   NOWATCHER: -121,
   REQUEST_TIMEOUT: -122,
   RECONFIG_DISABLED: -123,
+  SESSION_CLOSED_REQUIRE_SASL_AUTH: -124,
 };
 
 export const ConnectionEvent = {
@@ -141,6 +170,9 @@ export const ConnectionEvent = {
 const ANYONE_ID_UNSAFE = new jute.data.Id({ id: 'anyone', scheme: 'world' });
 const AUTH_IDS = new jute.data.Id({ id: '', scheme: 'auth' });
 
+/**
+ * org.apache.zookeeper.ZooDefs.Ids
+ */
 export const Ids = {
   ANYONE_ID_UNSAFE,
   AUTH_IDS,
