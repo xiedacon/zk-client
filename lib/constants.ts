@@ -348,9 +348,6 @@ export const ConnectionEvent = {
   closing: 'closing',
   closed: 'closed',
   error: 'error',
-
-  serverAvailable: 'serverAvailable',
-  serverUnavailable: 'serverUnavailable',
 };
 
 const ANYONE_ID_UNSAFE = new jute.data.Id({ id: 'anyone', scheme: 'world' });

@@ -47,6 +47,7 @@ export default class ConnectionManager extends events.EventEmitter {
 
   private connectTimeout: number;
   private reconnectInterval: number;
+  private closeTimeout: number;
   private retries: number;
   private retryInterval: number;
   private showFriendlyErrorStack: boolean;
@@ -87,6 +88,7 @@ export default class ConnectionManager extends events.EventEmitter {
     const options = client.options;
     this.connectTimeout = options.connectTimeout;
     this.reconnectInterval = options.reconnectInterval;
+    this.closeTimeout = options.closeTimeout;
     this.retries = options.retries - 1;
     this.retryInterval = options.retryInterval;
     this.showFriendlyErrorStack = options.showFriendlyErrorStack;
@@ -110,8 +112,7 @@ export default class ConnectionManager extends events.EventEmitter {
     this.packetManager = this.client.packetManager;
     this.watcherManager = this.client.watcherManager;
 
-    this.on(ConnectionEvent.serverAvailable, server => this.availableServers.push(server));
-    this.on(ConnectionEvent.serverUnavailable, server => { this.availableServers = _.dropWhile(this.availableServers, server); });
+    this.setState(ConnectionEvent.connecting);
 
     try {
       await this.getAvailableServer();
@@ -161,7 +162,7 @@ export default class ConnectionManager extends events.EventEmitter {
     await Promise.race(this.servers.map(server =>
       this.testServer(server)
         .then(
-          () => this.emit(ConnectionEvent.serverAvailable, server),
+          () => this.availableServers.push(server),
           err => this.logger.error(utils.formatError(err))
         )
     ));
@@ -180,10 +181,9 @@ export default class ConnectionManager extends events.EventEmitter {
 
   async connect() {
     if (this.socket) throw new Exception.Normal('Socket already connected');
-
-    this.preState !== null
-      ? this.setState(ConnectionEvent.reconnecting)
-      : this.setState(ConnectionEvent.connecting);
+    if (this.state !== ConnectionEvent.connecting || this.state !== ConnectionEvent.reconnecting) {
+      throw new Exception.Normal('connectionManager.connect() must be called after connectionManager.ready()');
+    }
 
     try {
       this.bindSocket(net.connect(this.server = await this.getAvailableServer()));
@@ -374,8 +374,6 @@ export default class ConnectionManager extends events.EventEmitter {
       this.pendingQueue.push(packet);
 
       if (packet.request.header.type === OpCode.closeSession) {
-        this.setState(ConnectionEvent.disconnect);
-        this.setState(ConnectionEvent.closed);
         break;
       }
     }
@@ -396,7 +394,7 @@ export default class ConnectionManager extends events.EventEmitter {
     } else {
       this.preState = this.preState || (this.state === ConnectionEvent.connecting ? null : this.state);
       this.setState(ConnectionEvent.disconnect);
-
+      this.setState(ConnectionEvent.reconnecting);
       this.connect();
     }
   }
@@ -413,23 +411,40 @@ export default class ConnectionManager extends events.EventEmitter {
       this.emit(ConnectionEvent.error, error);
     }
 
-    this.emit(ConnectionEvent.serverUnavailable, this.server);
+    this.availableServers = _.dropWhile(this.availableServers, this.server);
   }
 
   async close() {
     if (this.state === ConnectionEvent.closing || (this.state === ConnectionEvent.reconnecting && this.preState === ConnectionEvent.closing)) {
-      // do nothing
+      await new Promise(async resolve => this.on(ConnectionEvent.closed, resolve));
     } else if (!this.socketClosable) {
-      const packet = this.packetManager.closeSession;
-      const p = this.send(packet);
+      await new Promise(async resolve => {
+        const timeout = setTimeout(() => {
+          this.logger.warn(`Socket close timeout: ${this.closeTimeout} ms, server: ${JSON.stringify(this.server)}`);
 
-      this.setState(ConnectionEvent.closing);
+          if (this.socket) this.socket.destroy();
+          resolve();
+        }, this.closeTimeout);
 
-      await p;
-    } else if (this.socket) {
-      this.socket.destroy();
+        const packet = this.packetManager.closeSession;
+        const p = this.send(packet);
+
+        this.setState(ConnectionEvent.closing);
+
+        await p;
+
+        clearTimeout(timeout);
+
+        resolve();
+      });
+
+      if (this.state !== ConnectionEvent.closed) {
+        this.setState(ConnectionEvent.disconnect);
+        this.setState(ConnectionEvent.closed);
+      }
     } else {
-      // do nothing
+      if (this.state !== ConnectionEvent.closed) this.setState(ConnectionEvent.closed);
+      if (this.socket) this.socket.destroy();
     }
   }
 
@@ -445,6 +460,11 @@ export default class ConnectionManager extends events.EventEmitter {
     this.socket && this.socket.removeAllListeners();
     this.socket = null;
     this.pendingBuffer = null;
+
+    for (const packet of this.pendingQueue.concat(this.packetQueue)) {
+      if (packet.callback) packet.callback(new Exception.Normal('Client closed'), packet);
+    }
+
     this.pendingQueue = [];
     this.packetQueue = [];
     this.preState = null;
@@ -473,7 +493,7 @@ export default class ConnectionManager extends events.EventEmitter {
         }
 
         err
-          ? retries--
+          ? this.writable && retries--
             ? this.retryInterval
               ? setTimeout(() => this._send(packet), this.retryInterval)
               : this._send(packet)

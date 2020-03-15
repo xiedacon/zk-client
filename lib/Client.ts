@@ -47,6 +47,10 @@ export interface Options {
    */
   reconnectInterval: number;
   /**
+   * socket close timeout
+   */
+  closeTimeout: number;
+  /**
    * Times to retry send packet to server
    */
   retries: number;
@@ -120,6 +124,9 @@ export default class Client extends events.EventEmitter {
     this.watcherManager = this.options.WatcherManager instanceof WatcherManager
       ? new this.options.WatcherManager(this)
       : new WatcherManager(this);
+
+    // default error handler
+    this.on(ConnectionEvent.error, utils.noop);
   }
 
   get default() {
@@ -129,6 +136,7 @@ export default class Client extends events.EventEmitter {
 
       connectTimeout: 5000,
       reconnectInterval: 1000,
+      closeTimeout: 5000,
 
       retries: 3,
       retryInterval: 0,
