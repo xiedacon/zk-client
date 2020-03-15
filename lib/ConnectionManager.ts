@@ -126,7 +126,6 @@ export default class ConnectionManager extends events.EventEmitter {
       const socket = net.connect(server);
       const timeout = setTimeout(() => {
         socket.destroy();
-        socket.removeAllListeners();
 
         reject(new Exception.Normal(`Socket connect timeout: ${this.connectTimeout} ms, server: ${JSON.stringify(server)}`));
       }, this.connectTimeout);
@@ -147,29 +146,48 @@ export default class ConnectionManager extends events.EventEmitter {
 
       socket.on('data', () => {
         socket.destroy();
-        socket.removeAllListeners();
         clearTimeout(timeout);
 
         resolve();
       });
-      socket.on('error', utils.noop);
+
+      socket.on('error', err => {
+        clearTimeout(timeout);
+
+        reject(err);
+      });
+
+      socket.on('close', () => socket.removeAllListeners());
     });
   }
 
   async getAvailableServer() {
-    if (this.availableServers.length > 0) return _.sample(this.availableServers);
+    if (this.availableServers.length === 0) {
+      await new Promise(async resolve => {
+        const results = new Array(this.servers.length).fill('fulfilled');
 
-    await Promise.race(this.servers.map(server =>
-      this.testServer(server)
-        .then(
-          () => this.availableServers.push(server),
-          err => this.logger.error(utils.formatError(err))
-        )
-    ));
+        await Promise.all(this.servers.map((server, i) =>
+          this.testServer(server)
+            .then(
+              () => {
+                this.availableServers.push(server);
+                resolve();
+              },
+              err => {
+                this.logger.error(utils.formatError(err));
+                results[i] = 'rejected';
+              }
+            )
+        ));
 
-    if (this.availableServers.length > 0) return _.sample(this.availableServers);
+        if (results.indexOf('fulfilled') < 0) resolve();
+      });
+    }
 
-    throw new Exception.Normal('No available server');
+    const server = _.sample(this.availableServers);
+    if (!server) throw new Exception.Normal('No available server');
+
+    return server;
   }
 
   setState(state: string, ...args: Array<any>) {
@@ -181,7 +199,7 @@ export default class ConnectionManager extends events.EventEmitter {
 
   async connect() {
     if (this.socket) throw new Exception.Normal('Socket already connected');
-    if (this.state !== ConnectionEvent.connecting || this.state !== ConnectionEvent.reconnecting) {
+    if (this.state !== ConnectionEvent.connecting && this.state !== ConnectionEvent.reconnecting) {
       throw new Exception.Normal('connectionManager.connect() must be called after connectionManager.ready()');
     }
 
@@ -411,7 +429,7 @@ export default class ConnectionManager extends events.EventEmitter {
       this.emit(ConnectionEvent.error, error);
     }
 
-    this.availableServers = _.dropWhile(this.availableServers, this.server);
+    if (this.server) this.availableServers = _.dropWhile(this.availableServers, this.server);
   }
 
   async close() {
