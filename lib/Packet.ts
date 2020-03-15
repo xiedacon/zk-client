@@ -11,7 +11,7 @@ export default class Packet<Req extends Request<Jute.basic.RequestRecord>, Res e
   opCode: number;
   request: Req;
   response: Res;
-  callback?: (error: Error | null, packet: Packet<Req, Res>) => any;
+  callback?: (error: Error & { data?: any } | null, packet: Packet<Req, Res>) => any;
   stack: string;
 
   constructor(opCode: number, request: Req, response: Res, callback?: (error: Error | null, packet: Packet<Req, Res>) => any) {

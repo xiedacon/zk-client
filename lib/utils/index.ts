@@ -21,7 +21,7 @@ export function parseConnectionString(connectionString: string) {
       let itemChrootPath = exports.normalizePath(str.slice(index));
       itemChrootPath = itemChrootPath === '/' ? '' : itemChrootPath;
 
-      if (chrootPath && chrootPath !== itemChrootPath) throw new Exception.Normal('all connections must use the same chrootPath');
+      if (chrootPath && chrootPath !== itemChrootPath) throw new Exception.Params('all connections must use the same chrootPath');
 
       chrootPath = itemChrootPath;
       str = str.slice(0, index);

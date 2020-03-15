@@ -97,7 +97,7 @@ export default class Client extends events.EventEmitter {
     super();
 
     if (Array.isArray(connectionString)) connectionString = connectionString.join(',');
-    if (typeof connectionString !== 'string') throw new Exception.Normal('connectionString must be a string or Array<string>');
+    if (typeof connectionString !== 'string') throw new Exception.Params('connectionString must be a string or Array<string>');
 
     this.connectionString = connectionString;
     this.options = Object.assign({}, this.default, options);
@@ -108,8 +108,8 @@ export default class Client extends events.EventEmitter {
     // scheme:auth pairs
     for (let { scheme, auth } of this.options.authInfo) {
       if (typeof auth === 'string') auth = Buffer.from(auth);
-      if (typeof scheme !== 'string') throw new Exception.Normal('authInfo[i].scheme must be a string');
-      if (!Buffer.isBuffer(auth)) throw new Exception.Normal('authInfo[i].auth must be a string or Buffer');
+      if (typeof scheme !== 'string') throw new Exception.Params('authInfo[i].scheme must be a string');
+      if (!Buffer.isBuffer(auth)) throw new Exception.Params('authInfo[i].auth must be a string or Buffer');
 
       this.credentials.push({ scheme, auth });
     }
@@ -287,7 +287,7 @@ export default class Client extends events.EventEmitter {
    * @param flags specifying whether the node to be created is ephemeral and/or sequential
    */
   async create(path: string, data?: string | Buffer, acl = Ids.OPEN_ACL_UNSAFE, flags = CreateMode.PERSISTENT) {
-    if (typeof path !== 'string') throw new Exception.Normal('path must be a string');
+    if (typeof path !== 'string') throw new Exception.Params('path must be a string');
     path = utils.normalizePath(path);
 
     data = data ? Buffer.isBuffer(data) ? data : Buffer.from(data) : undefined;
@@ -355,7 +355,7 @@ export default class Client extends events.EventEmitter {
    * @param ttl specifying a TTL when mode is CreateMode.PERSISTENT_WITH_TTL or CreateMode.PERSISTENT_SEQUENTIAL_WITH_TTL
    */
   async create2(path: string, data?: string | Buffer, acl = Ids.OPEN_ACL_UNSAFE, flags = CreateMode.PERSISTENT, ttl?: Buffer) {
-    if (typeof path !== 'string') throw new Exception.Normal('path must be a string');
+    if (typeof path !== 'string') throw new Exception.Params('path must be a string');
     path = utils.normalizePath(path);
 
     data = data ? Buffer.isBuffer(data) ? data : Buffer.from(data) : undefined;
@@ -403,7 +403,7 @@ export default class Client extends events.EventEmitter {
    * @param version the expected node version
    */
   async delete(path: string, version = -1) {
-    if (typeof path !== 'string') throw new Exception.Normal('path must be a string');
+    if (typeof path !== 'string') throw new Exception.Params('path must be a string');
     path = utils.normalizePath(path);
 
     const packet = this.packetManager.delete;
@@ -437,7 +437,7 @@ export default class Client extends events.EventEmitter {
    * @param version the expected matching version
    */
   async setData(path: string, data: string | Buffer, version = -1) {
-    if (typeof path !== 'string') throw new Exception.Normal('path must be a string');
+    if (typeof path !== 'string') throw new Exception.Params('path must be a string');
     path = utils.normalizePath(path);
 
     data = data ? Buffer.isBuffer(data) ? data : Buffer.from(data) : Buffer.alloc(0);
@@ -472,7 +472,7 @@ export default class Client extends events.EventEmitter {
    * @param watcher explicit watcher
    */
   async getData(path: string, watcher?: Watcher) {
-    if (typeof path !== 'string') throw new Exception.Normal('path must be a string');
+    if (typeof path !== 'string') throw new Exception.Params('path must be a string');
     path = utils.normalizePath(path);
 
     const packet = this.packetManager.getData;
@@ -506,7 +506,7 @@ export default class Client extends events.EventEmitter {
    * @param version the given acl version of the node
    */
   async setACL(path: string, acl: Array<Jute.data.ACL>, version = -1) {
-    if (typeof path !== 'string') throw new Exception.Normal('path must be a string');
+    if (typeof path !== 'string') throw new Exception.Params('path must be a string');
     path = utils.normalizePath(path);
 
     const packet = this.packetManager.setACL;
@@ -529,7 +529,7 @@ export default class Client extends events.EventEmitter {
    * @param path The node path.
    */
   async getACL(path: string) {
-    if (typeof path !== 'string') throw new Exception.Normal('path must be a string');
+    if (typeof path !== 'string') throw new Exception.Params('path must be a string');
     path = utils.normalizePath(path);
 
     const packet = this.packetManager.getACL;
@@ -557,7 +557,7 @@ export default class Client extends events.EventEmitter {
    * @param watcher explicit watcher
    */
   async exists(path: string, watcher?: Watcher) {
-    if (typeof path !== 'string') throw new Exception.Normal('path must be a string');
+    if (typeof path !== 'string') throw new Exception.Params('path must be a string');
     path = utils.normalizePath(path);
 
     const packet = this.packetManager.exists;
@@ -601,7 +601,7 @@ export default class Client extends events.EventEmitter {
    * @param watcher explicit watcher
    */
   async getChildren(path: string, watcher?: Watcher) {
-    if (typeof path !== 'string') throw new Exception.Normal('path must be a string');
+    if (typeof path !== 'string') throw new Exception.Params('path must be a string');
     path = utils.normalizePath(path);
 
     const packet = this.packetManager.getChildren;
@@ -637,7 +637,7 @@ export default class Client extends events.EventEmitter {
    * @param watcher explicit watcher
    */
   async getChildren2(path: string, watcher?: Watcher) {
-    if (typeof path !== 'string') throw new Exception.Normal('path must be a string');
+    if (typeof path !== 'string') throw new Exception.Params('path must be a string');
     path = utils.normalizePath(path);
 
     const packet = this.packetManager.getChildren2;
@@ -661,7 +661,7 @@ export default class Client extends events.EventEmitter {
    * @param path
    */
   async getAllChildrenNumber(path: string) {
-    if (typeof path !== 'string') throw new Exception.Normal('path must be a string');
+    if (typeof path !== 'string') throw new Exception.Params('path must be a string');
     path = utils.normalizePath(path);
 
     const packet = this.packetManager.getAllChildrenNumber;
@@ -684,7 +684,7 @@ export default class Client extends events.EventEmitter {
    * @param prefixPath
    */
   async getEphemerals(prefixPath = '/') {
-    if (typeof prefixPath !== 'string') throw new Exception.Normal('path must be a string');
+    if (typeof prefixPath !== 'string') throw new Exception.Params('path must be a string');
     prefixPath = utils.normalizePath(prefixPath);
 
     const packet = this.packetManager.getEphemerals;
@@ -705,7 +705,7 @@ export default class Client extends events.EventEmitter {
    * @param path
    */
   async sync(path: string) {
-    if (typeof path !== 'string') throw new Exception.Normal('path must be a string');
+    if (typeof path !== 'string') throw new Exception.Params('path must be a string');
     path = utils.normalizePath(path);
 
     const packet = this.packetManager.sync;
@@ -753,7 +753,7 @@ export default class Client extends events.EventEmitter {
    * @param type the type of watcher to be removed
    */
   async removeWatches(path: string, watcher: Watcher, type: number) {
-    if (typeof path !== 'string') throw new Exception.Normal('path must be a string');
+    if (typeof path !== 'string') throw new Exception.Params('path must be a string');
     path = utils.normalizePath(path);
 
     const packet = this.packetManager.checkWatches;
@@ -779,7 +779,7 @@ export default class Client extends events.EventEmitter {
    * @param type the type of watcher to be removed
    */
   async removeAllWatches(path: string, type: number) {
-    if (typeof path !== 'string') throw new Exception.Normal('path must be a string');
+    if (typeof path !== 'string') throw new Exception.Params('path must be a string');
     path = utils.normalizePath(path);
 
     const packet = this.packetManager.removeWatches;

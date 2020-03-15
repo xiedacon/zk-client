@@ -65,8 +65,7 @@ export default class WatcherManager extends events.EventEmitter {
     let watcherExists = false;
     watchers[path] = watchers[path] || new events.EventEmitter();
     watcherExists = watchers[path].listeners('notification').some(l => {
-      // This is rather hacky since node.js wraps the listeners using an
-      // internal function.
+      // This is rather hacky since node.js wraps the listeners using an internal function.
       // eslint-disable-next-line @typescript-eslint/ban-ts-ignore
       // @ts-ignore
       return l === watcher || l.listener === watcher;
@@ -159,7 +158,7 @@ export default class WatcherManager extends events.EventEmitter {
         }
         break;
       default:
-        throw new Exception.Normal(`Unknown event type: ${event.type}`);
+        throw new Exception.Unknow(`Unknown event type: ${event.type}`);
     }
 
     process.nextTick(() => {
@@ -247,7 +246,7 @@ export default class WatcherManager extends events.EventEmitter {
         }
         break;
       default:
-        throw new Exception.Normal(`Unknown watcher type: ${type}`);
+        throw new Exception.Unknow(`Unknown watcher type: ${type}`);
     }
   }
 

@@ -75,7 +75,7 @@ export default class ConnectionManager extends events.EventEmitter {
     super();
 
     const { chrootPath, servers } = utils.parseConnectionString(client.connectionString);
-    if (servers.length === 0) throw new Exception.Normal('connectionString must contain at least one server.');
+    if (servers.length === 0) throw new Exception.Params('connectionString must contain at least one server.');
 
     this.client = client;
 
@@ -117,7 +117,7 @@ export default class ConnectionManager extends events.EventEmitter {
     try {
       await this.getAvailableServer();
     } catch (err) {
-      this.logger.error(utils.formatError(err));
+      // do nothing
     }
   }
 
@@ -127,7 +127,7 @@ export default class ConnectionManager extends events.EventEmitter {
       const timeout = setTimeout(() => {
         socket.destroy();
 
-        reject(new Exception.Normal(`Socket connect timeout: ${this.connectTimeout} ms, server: ${JSON.stringify(server)}`));
+        reject(new Exception.Network(`Socket connect timeout: ${this.connectTimeout} ms`));
       }, this.connectTimeout);
 
       socket.on('connect', () => {
@@ -174,7 +174,7 @@ export default class ConnectionManager extends events.EventEmitter {
                 resolve();
               },
               err => {
-                this.logger.error(utils.formatError(err));
+                this.logger.warn(`Failed to test server: ${JSON.stringify(server)}, error: ${utils.formatError(err)}`);
                 results[i] = 'rejected';
               }
             )
@@ -185,7 +185,7 @@ export default class ConnectionManager extends events.EventEmitter {
     }
 
     const server = _.sample(this.availableServers);
-    if (!server) throw new Exception.Normal('No available server');
+    if (!server) throw new Exception.Network(`No available server, servers: ${JSON.stringify(this.servers)}`);
 
     return server;
   }
@@ -198,15 +198,15 @@ export default class ConnectionManager extends events.EventEmitter {
   }
 
   async connect() {
-    if (this.socket) throw new Exception.Normal('Socket already connected');
+    if (this.socket) throw new Exception.State('Socket already connected');
     if (this.state !== ConnectionEvent.connecting && this.state !== ConnectionEvent.reconnecting) {
-      throw new Exception.Normal('connectionManager.connect() must be called after connectionManager.ready()');
+      throw new Exception.State('connectionManager.connect() must be called after connectionManager.ready()');
     }
 
     try {
       this.bindSocket(net.connect(this.server = await this.getAvailableServer()));
     } catch (err) {
-      this.logger.error(`Some error happened, it will try reconnect after ${this.reconnectInterval}ms, error: ${utils.formatError(err)}`);
+      this.logger.error(`Some error happened on connect, it will try reconnect after ${this.reconnectInterval}ms, error: ${utils.formatError(err)}`);
       this.emit(ConnectionEvent.error, err);
 
       this.zxid.fill(0);
@@ -425,7 +425,7 @@ export default class ConnectionManager extends events.EventEmitter {
       this.logger.error(`Client exited because of error: ${utils.formatError(error)}`);
       this.setState(ConnectionEvent.error, error);
     } else {
-      this.logger.error(`Some error happend, it will reconnect, error: ${utils.formatError(error)}`);
+      this.logger.error(`Some error happened on socket, it will reconnect, error: ${utils.formatError(error)}`);
       this.emit(ConnectionEvent.error, error);
     }
 
@@ -480,7 +480,7 @@ export default class ConnectionManager extends events.EventEmitter {
     this.pendingBuffer = null;
 
     for (const packet of this.pendingQueue.concat(this.packetQueue)) {
-      if (packet.callback) packet.callback(new Exception.Normal('Client closed'), packet);
+      if (packet.callback) packet.callback(new Exception.State('Client already closed'), packet);
     }
 
     this.pendingQueue = [];
@@ -489,9 +489,9 @@ export default class ConnectionManager extends events.EventEmitter {
   }
 
   async send<T1 extends Jute.basic.RequestRecord, T2 extends Jute.basic.ResponseRecord>(packet: Packet<Request<T1>, Response<T2>>, retries = this.retries) {
-    if (!(packet instanceof Packet)) throw new Exception.Normal('request must be a valid instance of Request.');
+    if (!(packet instanceof Packet)) throw new Exception.Params('request must be a valid instance of Request.');
     if (!this.writable) {
-      throw new Exception.Normal('connection not writable');
+      throw new Exception.State('Connection not writable');
     }
 
     if (this.chrootPath) {
@@ -505,8 +505,6 @@ export default class ConnectionManager extends events.EventEmitter {
       packet.callback = (err, packet) => {
         if (err) {
           packet.stack && utils.optimizeErrorStack(err, packet.stack, path.resolve(__dirname, '..'));
-          // eslint-disable-next-line @typescript-eslint/ban-ts-ignore
-          // @ts-ignore
           err.data = packet;
         }
 

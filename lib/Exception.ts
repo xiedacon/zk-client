@@ -63,8 +63,16 @@ export default class Exception extends Error {
     return Exception.bind(null, 'UnknowError');
   }
 
-  static get Normal(): new (message: string) => Exception {
-    return Exception.bind(null, 'NormalError');
+  static get Params(): new (message: string) => Exception {
+    return Exception.bind(null, 'ParamsError');
+  }
+
+  static get Network(): new (message: string) => Exception {
+    return Exception.bind(null, 'NetworkError');
+  }
+
+  static get State(): new (message: string) => Exception {
+    return Exception.bind(null, 'StateError');
   }
 
   toString() {
