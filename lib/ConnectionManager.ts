@@ -375,7 +375,7 @@ export default class ConnectionManager extends events.EventEmitter {
             error = new Exception.Protocol(responseHeaderData.err);
           }
 
-          process.nextTick(() => pendingPacket.callback && pendingPacket.callback(error, pendingPacket));
+          process.nextTick(() => pendingPacket.callback && pendingPacket.callback(error));
       }
     }
   }
@@ -480,7 +480,7 @@ export default class ConnectionManager extends events.EventEmitter {
     this.pendingBuffer = null;
 
     for (const packet of this.pendingQueue.concat(this.packetQueue)) {
-      if (packet.callback) packet.callback(new Exception.State('Client already closed'), packet);
+      if (packet.callback) packet.callback(new Exception.State('Client already closed'));
     }
 
     this.pendingQueue = [];
@@ -502,7 +502,7 @@ export default class ConnectionManager extends events.EventEmitter {
     if (this.showFriendlyErrorStack) Error.captureStackTrace(packet, ConnectionManager.prototype.send);
 
     const p = new Promise<Packet<Request<T1>, Response<T2>>>((resolve, reject) => {
-      packet.callback = (err, packet) => {
+      packet.callback = err => {
         if (err) {
           packet.stack && utils.optimizeErrorStack(err, packet.stack, path.resolve(__dirname, '..'));
           err.data = packet;
