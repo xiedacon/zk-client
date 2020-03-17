@@ -440,7 +440,6 @@ export default class ConnectionManager extends events.EventEmitter {
         const timeout = setTimeout(() => {
           this.logger.warn(`Socket close timeout: ${this.closeTimeout} ms, server: ${JSON.stringify(this.server)}`);
 
-          if (this.socket) this.socket.destroy();
           resolve();
         }, this.closeTimeout);
 
@@ -462,8 +461,9 @@ export default class ConnectionManager extends events.EventEmitter {
       }
     } else {
       if (this.state !== ConnectionEvent.closed) this.setState(ConnectionEvent.closed);
-      if (this.socket) this.socket.destroy();
     }
+
+    if (this.socket && !this.socket.destroyed) this.socket.destroy();
   }
 
   clear() {
