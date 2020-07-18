@@ -20,6 +20,7 @@ before_install:
 # 4. install
 install:
   - npm install
+  - npm run clean
 # 5. before_script
 # 6. script
 script:
