@@ -1,5 +1,9 @@
 # zk-client
 
+[![Build Status](https://travis-ci.com/xiedacon/zk-client.svg?branch=master)](https://travis-ci.com/xiedacon/zk-client)
+[![Coverage Status](https://coveralls.io/repos/github/xiedacon/zk-client/badge.svg?branch=master)](https://coveralls.io/github/xiedacon/zk-client?branch=master)
+[![license](https://img.shields.io/github/license/mashape/apistatus.svg)](https://github.com/xiedacon/zk-client/blob/master/LICENSE)
+
 A pure TypeScript [ZooKeeper](http://zookeeper.apache.org) client module for
 [Node.js](http://nodejs.org).
 
