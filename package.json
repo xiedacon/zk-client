@@ -21,7 +21,6 @@
     "test-after": "docker-compose down && npm run clean",
     "test-cov": "nyc ava test/* --serial",
     "cov": "npm run test-before && npm run test-cov && npm run test-after && nyc report --reporter=html && rm -rf .nyc_output",
-    "report": "nyc report --reporter=html",
     "lint": "eslint .",
     "build": "tsc --build tsconfig.json && cp index.ts node_modules && echo \"\nimport './lib/jute/jute';\" >> index.ts",
     "clean": "tsc --build tsconfig.json --clean && mv node_modules/index.ts index.ts",

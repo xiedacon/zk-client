@@ -1,7 +1,37 @@
 language: node_js
-
 node_js:
-  - "node"
-  - "6"
-  - "5"
+  - "10"
+  - "12"
+  - "14"
 
+# addons
+#   apt
+# cache
+# env
+services:
+  - docker
+
+# Build Lifecycle
+# 1. OPTIONAL Install apt addons
+# 2. OPTIONAL Install cache components
+# 3. before_install
+before_install:
+  - npm install -g nyc coveralls
+# 4. install
+install:
+  - npm install
+# 5. before_script
+# 6. script
+script:
+  - npm run test-before
+  - npm run test-cov
+  - npm run test-after
+# 7. OPTIONAL before_cache ( for cleaning up cache )
+# 8. after_success or after_failure:
+after_success:
+  - nyc report --reporter=text-lcov | coveralls
+  - rm -rf .nyc_output
+# 9. OPTIONAL before_deploy
+# 10. OPTIONAL deploy
+# 11. OPTIONAL after_deploy
+# 12. after_script
