@@ -289,7 +289,7 @@ test.serial('it should work with children2 watcher', async t => {
   await client.close();
 });
 
-test.skip('it should work with getAllChildrenNumber', async t => {
+test.serial('it should work with getAllChildrenNumber', async t => {
   const client = createClient(connectionString);
   await client.connect();
 
@@ -323,7 +323,7 @@ test.skip('it should work with getAllChildrenNumber', async t => {
   t.pass();
 });
 
-test.skip('it should work with getEphemerals', async t => {
+test.serial('it should work with getEphemerals', async t => {
   const client = createClient(connectionString);
   await client.connect();
 
@@ -333,7 +333,7 @@ test.skip('it should work with getEphemerals', async t => {
 
   t.deepEqual(
     await client.getEphemerals('/sdktest'),
-    { ephemerals: [ '/sdktest/1', '/sdktest/2' ] }
+    { ephemerals: [ '/sdktest/2', '/sdktest/1' ] }
   );
 
   await client.delete('/sdktest/2');

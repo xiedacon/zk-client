@@ -1,83 +1,25 @@
-# node-zookeeper-client
+# zk-client
 
 A pure TypeScript [ZooKeeper](http://zookeeper.apache.org) client module for
 [Node.js](http://nodejs.org).
 
-- [node-zookeeper-client](#node-zookeeper-client)
-  - [Requirements](#requirements)
-  - [Usage](#usage)
-  - [API](#api)
-    - [Client](#client)
-      - [new Client(connectionString[, options])](#new-clientconnectionstring-options)
-      - [client.shell](#clientshell)
-      - [client.getSessionId()](#clientgetsessionid)
-      - [client.getSessionPassword()](#clientgetsessionpassword)
-      - [client.getSessionTimeout()](#clientgetsessiontimeout)
-      - [client.connect()](#clientconnect)
-      - [client.close()](#clientclose)
-      - [client.create(path[, data[, acl[, flags]]])](#clientcreatepath-data-acl-flags)
-      - [client.create2(path[, data[, acl[, flags[, ttl]]]])](#clientcreate2path-data-acl-flags-ttl)
-      - [client.delete(path[, version])](#clientdeletepath-version)
-      - [client.setData(path, data[, version])](#clientsetdatapath-data-version)
-      - [client.getData(path[, watcher])](#clientgetdatapath-watcher)
-      - [client.setACL(path, acl[, version])](#clientsetaclpath-acl-version)
-      - [client.getACL(path)](#clientgetaclpath)
-      - [client.exists(path[, watcher])](#clientexistspath-watcher)
-      - [client.getChildren(path[, watcher])](#clientgetchildrenpath-watcher)
-      - [client.getChildren2(path[, watcher])](#clientgetchildren2path-watcher)
-      - [client.getAllChildrenNumber(path)](#clientgetallchildrennumberpath)
-      - [client.getEphemerals(prefixPath)](#clientgetephemeralsprefixpath)
-      - [client.sync(path)](#clientsyncpath)
-      - [client.transaction()](#clienttransaction)
-      - [client.getChildWatches()](#clientgetchildwatches)
-      - [client.getDataWatches()](#clientgetdatawatches)
-      - [client.getExistWatches()](#clientgetexistwatches)
-      - [client.removeWatches(path, watcher, type)](#clientremovewatchespath-watcher-type)
-      - [client.removeAllWatches(path, type)](#clientremoveallwatchespath-type)
-      - [client.getConfig([watcher])](#clientgetconfigwatcher)
-    - [Transaction](#transaction)
-      - [t.create(path[, data[, acl[, flags]]])](#tcreatepath-data-acl-flags)
-      - [t.check(path[, version])](#tcheckpath-version)
-      - [t.setData(path, data[, version])](#tsetdatapath-data-version)
-      - [t.remove(path, data[, version])](#tremovepath-data-version)
-      - [t.commit()](#tcommit)
-    - [Shell](#shell)
-      - [shell.touch(path)](#shelltouchpath)
-      - [shell.mkdir(path)](#shellmkdirpath)
-      - [shell.cp(from, to)](#shellcpfrom-to)
-      - [shell.cpr(from, to)](#shellcprfrom-to)
-      - [shell.mv(from, to)](#shellmvfrom-to)
-      - [shell.ls(path)](#shelllspath)
-      - [shell.tree(path)](#shelltreepath)
-      - [shell.cat(path)](#shellcatpath)
-      - [shell.rm(path)](#shellrmpath)
-      - [shell.rmrf(path)](#shellrmrfpath)
-    - [ZK.createClient(connectionString[, options])](#zkcreateclientconnectionstring-options)
-    - [CreateMode](#createmode)
-    - [OpCode](#opcode)
-    - [Perms](#perms)
-    - [Xid](#xid)
-    - [WatcherType](#watchertype)
-    - [EventType](#eventtype)
-    - [EventState](#eventstate)
-    - [ExceptionCode](#exceptioncode)
-    - [ConnectionEvent](#connectionevent)
-    - [Ids](#ids)
-  - [Jute](#jute)
-  - [License](#license)
+* Based on [node-zookeeper-client](https://github.com/alexguan/node-zookeeper-client)
+* Pure Typescript
+* Supported zookeeper 3.6.1
 
 ## Requirements
 
 * lodash
+* tslib
 
 ## Usage
 
 ```shell
-npm i @souche/node-zookeeper-client
+npm i zk-client
 ```
 
 ```js
-const ZK = require('@souche/node-zookeeper-client');
+const ZK = require('zk-client');
 const client = ZK.createClient('127.0.0.1:2181');
 
 (async () => {
@@ -102,7 +44,7 @@ const client = ZK.createClient('127.0.0.1:2181');
 ```
 
 ```js
-const ZK = require('@souche/node-zookeeper-client');
+const ZK = require('zk-client');
 const client = ZK.createClient('127.0.0.1:2181');
 
 (async () => {

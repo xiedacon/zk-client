@@ -32,7 +32,7 @@ export default class Transaction {
    * Transaction provides a builder interface that helps building an atomic set
    * of operations.
    *
-   * @param client an instance of node-zookeeper-client.
+   * @param client an instance of Client.
    */
   constructor(client: Client) {
     this.showFriendlyErrorStack = client.options.showFriendlyErrorStack;

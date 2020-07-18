@@ -1,18 +1,18 @@
 {
-  "name": "node-zookeeper-client",
-  "version": "0.2.3",
-  "description": "A pure Javascript ZooKeeper client for Node.js.",
-  "author": "Alex Guan <alex.guan@gmail.com>",
+  "name": "zk-client",
+  "version": "0.0.0-beta0",
+  "description": "A pure Typescript ZooKeeper client for Node.js.",
+  "author": "xiedacon <xiedacon@qq.com>",
   "main": "index.js",
   "keywords": [
     "zookeeper",
     "client",
     "pure",
-    "javascript"
+    "typescript"
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/alexguan/node-zookeeper-client"
+    "url": "https://github.com/xiedacon/zk-client"
   },
   "scripts": {
     "test": "npm run lint -- --fix && npm run test-before && npm run test-local && npm run test-after",
@@ -38,7 +38,7 @@
   "licenses": [
     {
       "type": "MIT",
-      "url": "http://github.com/alexguan/node-zookeeper-client/raw/master/LICENSE"
+      "url": "http://github.com/xiedacon/zk-client/raw/master/LICENSE"
     }
   ],
   "devDependencies": {
