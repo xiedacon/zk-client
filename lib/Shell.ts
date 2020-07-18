@@ -1,7 +1,7 @@
 /**
  * xiedacon created at 2019-11-02 13:43:34
  *
- * Copyright (c) 2019 Souche.com, all rights reserved.
+ * Copyright (c) 2019 xiedacon, all rights reserved.
  */
 
 import {

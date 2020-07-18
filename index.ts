@@ -1,7 +1,7 @@
 /**
  * xiedacon created at 2019-06-03 14:49:05
  *
- * Copyright (c) 2019 Souche.com, all rights reserved.
+ * Copyright (c) 2019 xiedacon, all rights reserved.
  */
 
 export * from './lib/constants';

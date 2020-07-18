@@ -1,7 +1,7 @@
 /**
  * xiedacon created at 2019-06-01 17:50:29
  *
- * Copyright (c) 2019 Souche.com, all rights reserved.
+ * Copyright (c) 2019 xiedacon, all rights reserved.
  */
 
 import RequestRecord from './RequestRecord';

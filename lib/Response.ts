@@ -1,7 +1,7 @@
 /**
  * xiedacon created at 2019-05-28 16:24:15
  *
- * Copyright (c) 2019 Souche.com, all rights reserved.
+ * Copyright (c) 2019 xiedacon, all rights reserved.
  */
 
 import jute from './jute';

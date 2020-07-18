@@ -1,7 +1,7 @@
 /**
  * xiedacon created at 2020-01-15 09:39:52
  *
- * Copyright (c) 2020 Souche.com, all rights reserved.
+ * Copyright (c) 2020 xiedacon, all rights reserved.
  */
 
 import * as util from 'util';

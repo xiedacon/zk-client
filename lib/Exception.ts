@@ -1,7 +1,7 @@
 /**
  * xiedacon created at 2019-05-27 16:57:17
  *
- * Copyright (c) 2019 Souche.com, all rights reserved.
+ * Copyright (c) 2019 xiedacon, all rights reserved.
  */
 
 import * as _ from 'lodash';

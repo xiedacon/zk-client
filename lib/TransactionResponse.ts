@@ -1,7 +1,7 @@
 /**
  * xiedacon created at 2019-05-28 16:27:46
  *
- * Copyright (c) 2019 Souche.com, all rights reserved.
+ * Copyright (c) 2019 xiedacon, all rights reserved.
  */
 
 
@@ -45,6 +45,8 @@ export default class TransactionResponse extends Response<Jute.basic.ResponseRec
 
         bytesRead += record.deserialize(buffer, offset + bytesRead);
 
+        // eslint-disable-next-line @typescript-eslint/ban-ts-ignore
+        // @ts-ignore
         if (record instanceof jute.proto.MultiHeader && record.type === OpCode.error) {
           this.payloads[i + 1] = new jute.proto.ErrorResponse();
         }
