@@ -1,6 +1,6 @@
 {
   "name": "zk-client",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A pure Typescript ZooKeeper client for Node.js.",
   "author": "xiedacon <xiedacon@qq.com>",
   "main": "index.js",
