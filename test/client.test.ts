@@ -8,7 +8,7 @@ import * as util from 'util';
 
 import test from 'ava';
 
-import { createClient, CreateMode, Ids, EventState, EventType, WatcherType } from '../index';
+import { createClient, CreateMode, Ids, EventState, EventType, WatcherType, WatcherManager, PacketManager } from '../index';
 
 const sleep = util.promisify(setTimeout);
 
@@ -432,4 +432,15 @@ test.serial('it should work with removeAllWatches', async t => {
   await client.delete('/sdktest/1');
   await client.delete('/sdktest');
   await client.close();
+});
+
+test.serial('it should work with custom PacketManager/WatcherManager', async t => {
+  class MyPacketManager extends PacketManager {
+  }
+  class MyWatcherManager extends WatcherManager {
+  }
+
+  const client = createClient(connectionString, { PacketManager: MyPacketManager, WatcherManager: MyWatcherManager });
+  t.true(client.packetManager instanceof MyPacketManager);
+  t.true(client.watcherManager instanceof MyWatcherManager);
 });
