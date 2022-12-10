@@ -60,3 +60,16 @@ export function optimizeErrorStack(err: Error, friendlyStack: string, filterPath
     )
     .join('\n');
 }
+
+export function getInheritances(classDef: Function): Function[] {
+  const tree: Function[] = [ classDef ];
+  const getPrototypeOf = (object: Function): void => {
+    const proto = Object.getPrototypeOf(object);
+    if (proto && proto.name) {
+      tree.push(proto);
+      getPrototypeOf(proto);
+    }
+  };
+  getPrototypeOf(classDef);
+  return tree;
+}

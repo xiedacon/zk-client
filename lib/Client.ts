@@ -22,6 +22,7 @@ import Shell from './Shell';
 import PacketManager from './PacketManager';
 import ConnectionManager from './ConnectionManager';
 import WatcherManager from './WatcherManager';
+import { getInheritances } from './utils';
 
 const isProd = process.env.NODE_ENV && [ 'dev', 'develop', 'development', 'DEV', 'DEVELOP', 'DEVELOPMENT' ].indexOf(process.env.NODE_ENV) < 0;
 
@@ -117,11 +118,12 @@ export default class Client extends events.EventEmitter {
     this.logger = this.options.logger;
     this.shell = new Shell(this);
 
-    this.packetManager = this.options.PacketManager instanceof PacketManager
+    this.packetManager = this.options.PacketManager && getInheritances(this.options.PacketManager).includes(PacketManager)
       ? new this.options.PacketManager(this)
       : new PacketManager(this);
     this.connectionManager = new ConnectionManager(this);
-    this.watcherManager = this.options.WatcherManager instanceof WatcherManager
+
+    this.watcherManager = this.options.WatcherManager && getInheritances(this.options.WatcherManager).includes(WatcherManager)
       ? new this.options.WatcherManager(this)
       : new WatcherManager(this);
 
